@@ -2712,18 +2712,17 @@ class ApiController(RedditController):
         if kw['type'] == 'archived' and not can_set_archived:
             c.errors.add(errors.INVALID_OPTION, field='type')
 
-        can_set_gold_restricted = c.user_is_admin or (sr and sr.type == 'gold_restricted')
-        if kw['type'] == 'gold_restricted' and not can_set_gold_restricted:
-            c.errors.add(errors.INVALID_OPTION, field='type')
-
-        # can't create a gold only subreddit without having gold
-        can_set_gold_only = (c.user.gold or c.user.gold_charter or
-                (sr and sr.type == 'gold_only'))
-        if kw['type'] == 'gold_only' and not can_set_gold_only:
+        # can't create a gold subreddit without having gold
+        can_set_gold_subreddit = (c.user.gold or c.user.gold_charter or
+                (sr and (sr.type == 'gold_only' or sr.type == 'gold_restricted')))
+        if kw['type'] == 'gold_restricted' and not can_set_gold_subreddit:
+            form.set_error(errors.GOLD_REQUIRED, 'type')
+            c.errors.add(errors.GOLD_REQUIRED, field='type')
+        if kw['type'] == 'gold_only' and not can_set_gold_subreddit:
             form.set_error(errors.GOLD_REQUIRED, 'type')
             c.errors.add(errors.GOLD_REQUIRED, field='type')
 
-        can_set_hide_ads = can_set_gold_only and kw['type'] == 'gold_only'
+        can_set_hide_ads = can_set_gold_subreddit and kw['type'] == 'gold_only'
         if kw['hide_ads'] and not can_set_hide_ads:
             form.set_error(errors.GOLD_ONLY_SR_REQUIRED, 'hide_ads')
             c.errors.add(errors.GOLD_ONLY_SR_REQUIRED, field='hide_ads')

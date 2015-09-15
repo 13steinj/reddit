@@ -133,18 +133,39 @@ try participating in other communities on reddit for a little while first before
                          _("only approved members can view and submit"),
                          (thing.site and thing.site.type=='private'))}
 
+      <%
+          is_gold_restricted = thing.site and thing.site.type == 'gold_restricted'
+          is_gold_only = thing.site and thing.site.type == 'gold_only'
+          is_gold_subreddit = is_gold_only or is_gold_restricted
+          can_set_gold_subreddit = (is_gold_subreddit or c.user_is_admin or
+                  (not thing.site and (c.user.gold or c.user.gold_charter)))
+          if is_gold_only:
+              gold_only_hover_title = "[!]"
+              gold_only_hover_text = _('If you switch this subreddit to another type other than "gold restricted", you will not be able to switch back to "gold only" without the assistance of an admin')
+          else:
+              gold_only_hover_title = "[?]"
+              gold_only_hover_text = unsafe(capture(_md, 'BETA: Subreddits can be created as "gold only" during creation by a user that has gold or set if the subreddit is "gold restricted". You can find more info about this feature [here](/gold/about#gold-only-subreddits)'))
+          if is_gold_restricted:
+              gold_restricted_hover_title = "[!]"
+              gold_restricted_hover_text = _('If you switch this subreddit to another type other than "gold only", you will not be able to switch back to "gold restricted" without the assistance of an admin')
+          else:
+              gold_restricted_hover_title = "[?]"
+              gold_restricted_hover_text = unsafe(capture(_md, 'BETA: Subreddits can be created as "gold restricted" during creation by a user that has gold or set if the subreddit is "gold only". You can find more info about this feature [here](/gold/about#gold-only-subreddits)'))
+      %>
+
+      ${utils.radio_type('type', "gold_restricted", _("gold restricted"),
+              _("anyone can view, but only reddit gold members can submit or comment"),
+              checked=is_gold_restricted, disabled=not can_set_gold_subreddit,
+              hover_title=gold_restricted_hover_title, hover_text=gold_restricted_hover_text)}
+      ${utils.radio_type('type', "gold_only", _("gold only"),
+              _("only reddit gold members can view and submit"),
+              checked=is_gold_only, disabled=not can_set_gold_subreddit,
+              hover_title=gold_only_hover_title, hover_text=gold_only_hover_text)}
       <% is_archived = thing.site and thing.site.type == 'archived' %>
       %if c.user_is_admin or is_archived:
         ${utils.radio_type('type', "archived", _("archived"),
                            _("anyone can view, but submissions are no longer accepted"),
                            is_archived)}
-      %endif
-
-      <% is_gold_restricted = thing.site and thing.site.type == 'gold_restricted' %>
-      %if c.user_is_admin or is_gold_restricted:
-        ${utils.radio_type('type', "gold_restricted", _("gold restricted"),
-                           _("anyone can view, but only reddit gold members can submit or comment"),
-                           is_gold_restricted)}
       %endif
 
       <% is_employees_only = thing.site and thing.site.type == 'employees_only' %>
@@ -153,22 +174,6 @@ try participating in other communities on reddit for a little while first before
                            _("only reddit employees can view; the employee list is pulled from live config"),
                            is_employees_only)}
       %endif
-
-      <% 
-          is_gold_only = thing.site and thing.site.type == 'gold_only'
-          can_set_gold_only = (is_gold_only or c.user_is_admin or
-                  (not thing.site and (c.user.gold or c.user.gold_charter)))
-          if is_gold_only:
-              hover_title = "[!]"
-              hover_text = _('If you switch this subreddit to another type, you will not be able to switch back to "gold only" without the assistance of an admin')
-          else:
-              hover_title = "[?]"
-              hover_text = unsafe(capture(_md, 'BETA: Subreddits can be created as "gold only" during creation by a user that has gold. You can find more info about this feature [here](/gold/about#gold-only-subreddits)'))
-      %>
-      ${utils.radio_type('type', "gold_only", _("gold only"),
-              _("only reddit gold members can view and submit"),
-              checked=is_gold_only, disabled=not can_set_gold_only, hover_title=hover_title,
-              hover_text=hover_text)}
       </table>
       ${error_field("INVALID_OPTION", "type")}
       ${error_field("ADMIN_REQUIRED", "type")}
