@@ -504,7 +504,8 @@ class Reddit(Templated):
             if feature.is_enabled('thread_locking'):
                 buttons += [NamedButton("locked", css_class="reddit-locked")]
 
-            buttons += [NamedButton("contests", css_class="reddit-contests")]
+            buttons += [NamedButton("watching", css_class="reddit-watching"),
+                        NamedButton("contests", css_class="reddit-contests")]
 
             if not c.site.over_18:
                 buttons += [NamedButton("nsfw", css_class="reddit-nsfw")]

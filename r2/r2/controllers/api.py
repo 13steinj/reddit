@@ -1479,6 +1479,7 @@ class ApiController(RedditController):
         ModAction.create(thing.subreddit_slow, c.user, target=thing,
                          action='watch')
         g.stats.simple_event('modaction.watch')
+        queries.start_watching(thing)
 
 
     @require_oauth2_scope("modposts")
@@ -1502,6 +1503,7 @@ class ApiController(RedditController):
         ModAction.create(thing.subreddit_slow, c.user, target=thing,
                          action='unwatch')
         g.stats.simple_event('modaction.unwatch')
+        queries.stop_watching(thing)
 
 
     @require_oauth2_scope("modposts")

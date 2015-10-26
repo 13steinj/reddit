@@ -198,6 +198,12 @@ class BaseSite(object):
         from r2.lib.db import queries
         return queries.get_locked(self, user=c.user)
 
+    def get_watching(self, include_links=True, include_comments=True):
+        from r2.lib.db import queries
+        return queries.get_watching(self, user=c.user,
+                                    include_links=include_links,
+                                    include_comments=include_comments)
+
     def get_contests(self):
         from r2.lib.db import queries
         return queries.get_contests(self, user=c.user)

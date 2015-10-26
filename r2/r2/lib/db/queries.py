@@ -466,6 +466,12 @@ def get_locked_links(sr_id):
                        sort = db_sort('new'))
 
 @cached_query(SubredditQueryCache)
+def get_watching_links(sr_id):
+    return Link._query(Link.c.sr_id == sr_id,
+                       Link.c.watching == True,
+                       sort = db_sort('new'))
+
+@cached_query(SubredditQueryCache)
 def get_contest_links(sr_id):
     return Link._query(Link.c.sr_id == sr_id,
                        Link.c.contest_mode == True,
@@ -487,6 +493,13 @@ def get_unmoderated_links(sr_id):
     q._filter(or_(and_(Link.c._spam == True, Link.c.verdict != 'mod-removed'),
                   and_(Link.c._spam == False, Link.c.verdict != 'mod-approved')))
     return q
+
+@cached_query(SubredditQueryCache)
+def get_watching_comments(sr_id):
+    return Comment._query(Comment.c.sr_id == sr_id,
+                          Comment.c.watching == True,
+                          sort = db_sort('new'))
+
 
 @cached_query(SubredditQueryCache)
 def get_unmoderated_comments(sr_id):
@@ -516,6 +529,17 @@ def get_modqueue(sr, user=None, include_links=True, include_comments=True):
 def get_locked(sr, user=None):
     sr_ids = moderated_srids(sr, user)
     queries = [get_locked_links]
+    return [query(sr_id) for sr_id, query in itertools.product(sr_ids, queries)]
+
+@merged_cached_query
+def get_watching(sr, user=None, include_links=True, include_comments=True):
+    sr_ids = moderated_srids(sr, user)
+    queries = []
+
+    if include_links:
+        queries.append(get_watching_links)
+    if include_comments:
+        queries.append(get_watching_comments)
     return [query(sr_id) for sr_id, query in itertools.product(sr_ids, queries)]
 
 @merged_cached_query
@@ -1735,6 +1759,25 @@ def remove_lock(thing):
         m.delete(q, [thing])
 
 
+def start_watching(thing):
+    with CachedQueryMutator() as m:
+        if isinstance(thing, Link):
+            m.insert(get_watching_links(thing.sr_id), [thing])
+        elif isinstance(thing, Comment):
+            m.insert(get_watching_comments(thing.sr_id), [thing])
+
+    amqp.add_item("start_watching", thing._fullname)
+
+
+def stop_watching(thing):
+    with CachedQueryMutator() as m:
+        if isinstance(thing, Link):
+            q = get_watching_links(thing.sr_id)
+        elif isinstance(thing, Comment):
+            q = get_watching_comments(thing.sr_id)
+        m.delete(q, [thing])
+
+
 def new_contest(thing):
     with CachedQueryMutator() as m:
         m.insert(get_contest_links(thing.sr_id), [thing])
@@ -1776,6 +1819,8 @@ def add_all_srs():
         get_locked_links(sr).update()
         get_contest_links(sr).update()
         get_nsfw_links(sr).update()
+        get_watching_links(sr).update()
+        get_watching_comments(sr).update()
 
 def update_user(user):
     if isinstance(user, str):

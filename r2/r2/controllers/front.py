@@ -662,6 +662,9 @@ class FrontController(RedditController):
                                         include_comments=include_comments)
         elif location == 'locked':
             query = c.site.get_locked()
+        elif location == 'watching':
+            query = c.site.get_watching(include_links=include_links,
+                                        include_comments=include_comments)
         elif location == 'contests':
             query = c.site.get_contests()
         elif location == 'nsfw':
@@ -710,6 +713,8 @@ class FrontController(RedditController):
                 return False
             elif location == 'locked':
                 return x.locked
+            elif location == 'watching':
+                return x.watching
             elif location == 'contests':
                 return x.contest_mode
             elif location == 'nsfw':
@@ -792,7 +797,7 @@ class FrontController(RedditController):
         uses_site=True,
         uri='/about/{location}',
         uri_variants=['/about/' + loc for loc in
-                      ('reports', 'spam', 'modqueue', 'locked',
+                      ('reports', 'spam', 'modqueue', 'locked', 'watching',
                        'contests', 'nsfw', 'unmoderated', 'edited')],
     )
     def GET_spamlisting(self, location, only, num, after, reverse, count):
@@ -803,6 +808,7 @@ class FrontController(RedditController):
         * modqueue: Things requiring moderator review, such as reported things
             and items caught by the spam filter.
         * locked: Things that have been locked.
+        * watching: Things that are being watched closely.
         * contests: Things that have been put into contest mode.
         * nsfw: Things that are nsfw.
         * unmoderated: Things that have yet to be approved/removed by a mod.
@@ -837,7 +843,8 @@ class FrontController(RedditController):
 
         extension_handling = "private" if c.user.pref_private_feeds else False
 
-        if location in ('reports', 'spam', 'modqueue', 'edited', 'unmoderated'):
+        if location in ('reports', 'spam', 'modqueue',
+                        'watching', 'edited', 'unmoderated'):
             buttons = [
                 QueryButton(_('links and comments'), None, query_param='only'),
                 QueryButton(_('links'), 'links', query_param='only'),
