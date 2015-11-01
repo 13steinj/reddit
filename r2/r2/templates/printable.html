@@ -95,6 +95,8 @@ ${self.RenderPrintable()}
     else:
       rowclass = ""
 
+    if what.watching:
+        rowclass += " watching"
     if getattr(what, "deleted", False):
       rowclass += " deleted"
     if hasattr(what, "saved") and what.saved:

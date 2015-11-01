@@ -241,6 +241,7 @@ class Builder(object):
             # add the other spam-related display attributes
             w.show_reports = False
             w.show_spam    = False
+            w.watching     = False
             w.can_ban      = False
             w.use_big_modbuttons = self.spam_listing
 
@@ -281,6 +282,8 @@ class Builder(object):
                     # the Wrapped so it's pulled into the render cache key in
                     # instances when reported will be used in the template
                     w.report_count = item.reported
+
+                w.watching = getattr(item, "watching", False)
 
             w.approval_checkmark = None
             if w.can_ban:

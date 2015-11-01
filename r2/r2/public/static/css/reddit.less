@@ -4523,11 +4523,16 @@ form input[type=radio] {margin: 2px .5em 0 0; }
 }
 
 .suspicious { background-color: #f6e69f }
-.thing.spam { background-color: #FA8072 }
+.thing.watching { background-color: #E472FA; }
+.thing.spam { background-color: #FA8072; }
+.thing.spam.watching { background-color: #EF79B6; }
 
-.comment.spam > .child, .message.spam > .child {
+.comment.watching > .child, .comment.spam > .child,
+.message.spam > .child {
     background-color: white;
 }
+
+.comment.watching > .child,
 .comment.spam > .child {
     margin-left: 0;
     padding-left: 15px;
@@ -4544,6 +4549,10 @@ form input[type=radio] {margin: 2px .5em 0 0; }
     .title {
         text-decoration: line-through;
     }
+}
+
+.thing.banned_user.watching {
+    background-color: rgba(239, 121, 182, 0.5);
 }
 
 .approval-checkmark {
