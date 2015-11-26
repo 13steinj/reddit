@@ -1333,71 +1333,70 @@ class RedditsController(ListingController):
         return keep
 
     def query(self):
-        if self.where == 'banned' and c.user_is_admin:
-            reddits = Subreddit._query(Subreddit.c._spam == True,
-                                       sort = desc('_date'),
-                                       write_cache = True,
-                                       read_cache = True,
-                                       cache_time = 5 * 60,
-                                       stale = True)
+        if ((self.where in ('banned', 'quarantine') and not c.user_is_admin) or
+            (self.where == 'employee' and not (c.user_is_loggedin and
+                                               c.user.employee))):
+            abort(404)
+        if self.where == 'new':
+            reddits = Subreddit._query(
+                write_cache=True,
+                read_cache=True,
+                cache_time=5 * 60,
+                stale=True,
+            )
+        elif self.where == 'banned':
+            reddits = Subreddit._query(
+                Subreddit.c._spam==True,
+                write_cache=True,
+                read_cache=True,
+                cache_time=5 * 60,
+                stale=True,
+            )
+        elif self.where == 'employee':
+            reddits = Subreddit._query(
+                Subreddit.c.type=='employees_only',
+                write_cache=True,
+                read_cache=True,
+                cache_time=5 * 60,
+                stale=True,
+            )
+        elif self.where == 'quarantine':
+            reddits = Subreddit._query(
+                Subreddit.c.quarantine==True,
+                write_cache=True,
+                read_cache=True,
+                cache_time=5 * 60,
+                stale=True,
+            )
+        elif self.where == 'gold':
+            reddits = Subreddit._query(
+                Subreddit.c.type=='gold_only',
+                write_cache=True,
+                read_cache=True,
+                cache_time=5 * 60,
+                stale=True,
+            )
+        elif self.where == 'default':
+            return [
+                sr._fullname
+                for sr in Subreddit.default_subreddits(ids=False)
+            ]
         else:
-            reddits = None
-            if self.where == 'new':
-                reddits = Subreddit._query( write_cache = True,
-                                            read_cache = True,
-                                            cache_time = 5 * 60,
-                                            stale = True)
-                reddits._sort = desc('_date')
-            elif self.where == 'employee':
-                if c.user_is_loggedin and c.user.employee:
-                    reddits = Subreddit._query(
-                        Subreddit.c.type=='employees_only',
-                        write_cache=True,
-                        read_cache=True,
-                        cache_time=5 * 60,
-                        stale=True,
-                    )
-                    reddits._sort = desc('_downs')
-                else:
-                    abort(404)
-            elif self.where == 'quarantine':
-                if c.user_is_admin:
-                    reddits = Subreddit._query(
-                        Subreddit.c.quarantine==True,
-                        write_cache=True,
-                        read_cache=True,
-                        cache_time=5 * 60,
-                        stale=True,
-                    )
-                    reddits._sort = desc('_downs')
-                else:
-                    abort(404)
-            elif self.where == 'gold':
-                reddits = Subreddit._query(
-                    Subreddit.c.type=='gold_only',
-                    write_cache=True,
-                    read_cache=True,
-                    cache_time=5 * 60,
-                    stale=True,
-                )
-                reddits._sort = desc('_downs')
-            elif self.where == 'default':
-                return [
-                    sr._fullname
-                    for sr in Subreddit.default_subreddits(ids=False)
-                ]
-            else:
-                reddits = Subreddit._query( write_cache = True,
-                                            read_cache = True,
-                                            cache_time = 60 * 60,
-                                            stale = True)
-                reddits._sort = desc('_downs')
+            reddits = Subreddit._query(
+                write_cache=True,
+                read_cache=True,
+                cache_time=60 * 60,
+                stale=True,
+            )
 
-            if g.domain != 'reddit.com':
-                # don't try to render /r/promos on opensource installations
-                promo_sr_id = Subreddit.get_promote_srid()
-                if promo_sr_id:
-                    reddits._filter(Subreddit.c._id != promo_sr_id)
+        sr_sort = '_date' if self.where in ('new', 'banned') else '_downs'
+        reddits._sort = desc(sr_sort)
+
+        if g.domain != 'reddit.com':
+            # don't try to render /r/promos on opensource installations
+            promo_sr_id = Subreddit.get_promote_srid()
+            if promo_sr_id:
+                reddits._filter(Subreddit.c._id != promo_sr_id)
 
         if self.where == 'popular':
             self.render_params = {"show_interestbar": True}
