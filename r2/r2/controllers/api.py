@@ -1734,7 +1734,7 @@ class ApiController(RedditController):
 
         if isinstance(thing, (Link, Message)):
             button = jquery(".id-%s .report-button" % thing._fullname)
-        elif isinstance(thing, Comment):
+        elif isinstance(thing, (Comment, Subreddit)):
             button = jquery(".id-%s .entry:first .report-button" % thing._fullname)
         else:
             return
