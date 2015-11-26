@@ -26,7 +26,7 @@
    from r2.lib.strings import strings, Score
    from r2.lib.pages import WrappedUser, QuarantineOptoutButton, SubscribeButton
    from r2.lib.template_helpers import _ws, _wsf
-   from r2.models.listing import ModListing
+   from r2.models.listing import ModListing, Account
  %>
 
 <%namespace file="utils.html" import="plain_link, thing_timestamp, text_with_links, _mdf"/>
@@ -116,61 +116,101 @@
   </div>
 
   %if c.user_is_admin:
-    <div class="raisedbox spacer">
-      %if thing.sr.ban_count:
-        <p>
-          ${strings.times_banned % thing.sr.ban_count}
-        </p>
-      %endif
-      
-      %if thing.sr._spam:
-        ${ynbutton(op='approve',
-                   title=_('approve this subreddit'), 
-                   executed=_('approved'),
-                   hidden_data = dict(id = thing.sr._fullname),
-        )}
-        
-        <form id="banmessage-form" method="post" onsubmit="return post_form(this, 'admin/add_ban_message')">
-          <input type="hidden" name="thing" value="${thing.sr._fullname}">
-          <input type="hidden" name="system" value="subreddit">
-          <textarea name="message" rows=4>
-            %if getattr(thing.sr, 'ban_info', {}) and 'message' in thing.sr.ban_info:
-              ${thing.sr.ban_info['message'] or ''}
-            %endif
-          </textarea>
-          <input type="submit" class="notes-button" 
-            value="Set public ban message (blank for default)">
+    <%
+      sys_uname = getattr(Account.system_user(), 'name', None)
+      sent_by_label = "Message will be sent by {} and won't send if left blank".format(("/u/"+ sys_uname) if sys_uname else "you")
+    %>
+    <div class="ban-tool raisedbox spacer collapsed">
+      <div name="expander">
+        <a href="javascript:void(0)" class="expand ban" onclick="return toggleAdminSrTool(this)">
+          ${"[%s]" % "+"}
+        </a>
+        ${"Show unban tool" if thing.sr._spam else "Show ban tool"}
+      </div>
+      <div class="ban-info">
+        %if not thing.sr._spam:
+          <%
+            subject = "ATTN: Your subreddit has been banned"
+            body = "Your subreddit has been [banned](https://reddit.zendesk.com/hc/en-us/articles/206332635) due to violating [reddit's content policy](/help/contentpolicy)."
+            button_label = "Ban and send modmail"
+          %>
+        %else:
+          <%
+            subject = "ATTN: Your subreddit is no longer banned"
+            body = "Your subreddit has been unbanned."
+            button_label = "Unban and send modmail"
+          %>
+        %endif
+        <form id="srbanmessage-form" method="post" onsubmit="return post_form(this, 'srban')">
+          <input type="hidden" name="subreddit" value="${thing.sr._fullname}">
+          <input type="hidden" name="ban" value="${not thing.sr._spam}">
+          %if not thing.sr._spam:
+            <input type="checkbox" name="spam"><label for="spam">Ban for spam?</label>
+            <textarea name="message" rows=4 placeholder="Public Ban Message (blank for default)"></textarea>
+          %endif
+          <label for="subject">Subject:</label>
+          <br>
+          <textarea name="subject">${subject}</textarea>
+          <br>
+          <label for="body">Body:</label>
+          <br>
+          <textarea name="body" rows=4>${body}</textarea>
+          <br>
+          <input type="submit" class="notes-button" value="${button_label}">
+          <br>
+          <label>${sent_by_label}</label>
         </form>
-        
-        %if hasattr(thing.sr, "banner"):
-          <p>
-           ${strings.banned_by % thing.sr.banner}
-          </p>
-        %endif
-        %if getattr(thing.sr, 'ban_info', {}):
-          <p>
-            ${strings.time_banned % thing.sr.ban_info.get('banned_at') or 'N/A'}
-          </p>
-        %endif
-
-      %else:
-        ${ynbutton(op='remove',
-                   title=_('ban this subreddit'), 
-                   executed=_('banned'),
-                   hidden_data = dict(id = thing.sr._fullname),
-        )}
-        %if getattr(thing.sr, 'ban_info', {}):
-          <p>
-            ${strings.time_approved % thing.sr.ban_info.get('unbanned_at') or 'N/A'}
-          </p>
-        %endif
-      %endif
+      </div>
     </div>
     <div class="clear"></div>
-
+    <div class="bannote-tool raisedbox spacer collapsed">
+      <div name="expander">
+        <a href="javascript:void(0)" class="expand ban" onclick="return toggleAdminSrTool(this)">
+          ${"[%s]" % "+"}
+        </a>
+        ${"Show ban info%s" % " and note tool" if thing.sr._spam else ""}
+      </div>
+      <div class="bannote-info">
+        %if thing.sr.ban_count:
+          <p>
+            ${strings.times_banned % thing.sr.ban_count}
+          </p>
+        %endif
+        %if thing.sr._spam:
+          <form id="banmessage-form" method="post" onsubmit="return post_form(this, 'admin/add_ban_message')">
+            <input type="hidden" name="thing" value="${thing.sr._fullname}">
+            <input type="hidden" name="system" value="subreddit">
+            <textarea name="message" rows=4>
+              %if getattr(thing.sr, 'ban_info', {}) and 'message' in thing.sr.ban_info:
+                ${thing.sr.ban_info['message'] or ''}
+              %endif
+            </textarea>
+            <input type="submit" class="notes-button" 
+              value="Set public ban message (blank for default)">
+          </form>
+          %if hasattr(thing.sr, "banner"):
+            <p>
+             ${strings.banned_by % thing.sr.banner}
+            </p>
+          %endif
+          %if getattr(thing.sr, 'ban_info', {}):
+            <p>
+              ${strings.time_banned % thing.sr.ban_info.get('banned_at') or 'N/A'}
+            </p>
+          %endif
+        %else:
+          %if getattr(thing.sr, 'ban_info', {}):
+            <p>
+              ${strings.time_approved % thing.sr.ban_info.get('unbanned_at') or 'N/A'}
+            </p>
+          %endif
+        %endif
+      </div>
+    </div>
+    <div class="clear"></div>
     <div class="quarantine-tool raisedbox spacer collapsed">
       <div name="expander">
-        <a href="javascript:void(0)" class="expand" onclick="return toggleSrQuarantine(this)">
+        <a href="javascript:void(0)" class="expand quarantine" onclick="return toggleAdminSrTool(this)">
           ${"[%s]" % "+"}
         </a>
         ${"Show unquarantine tool" if thing.sr.quarantine else "Show quarantine tool"}
@@ -202,7 +242,7 @@
           <br>
           <input type="submit" class="notes-button" value="${button_label}">
           <br>
-          <label>Message will be sent by u/reddit and won't send if left blank</label>
+          <label>${sent_by_label}</label>
         </form>
       </div>
     </div>

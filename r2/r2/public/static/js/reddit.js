@@ -438,8 +438,8 @@ function togglecomment(elem) {
   }
 }
 
-function toggleSrQuarantine(elem) {
-  var $toolbox = $(".quarantine-tool");
+function toggleAdminSrTool(elem) {
+  var $toolbox = $(elem).parents('.raisedbox');
   var $expander = $toolbox.find(".expand:first");
   var isCollapsed = $toolbox.hasClass("collapsed");
   $toolbox.toggleClass("collapsed noncollapsed");
