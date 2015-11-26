@@ -649,3 +649,7 @@ class UserQueryCache(_BaseQueryCache):
 class SubredditQueryCache(_BaseQueryCache):
     """A query cache column family for subreddit-keyed queries."""
     _use_db = True
+
+class RedditSrQueryCache(_BaseQueryCache):
+    """A query cache column family for reddit-keyed queries on subreddits"""
+    _use_db = True

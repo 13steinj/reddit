@@ -40,6 +40,7 @@ from r2.models.query_cache import (
     FakeQuery,
     merged_cached_query,
     MergedCachedQuery,
+    RedditSrQueryCache,
     SubredditQueryCache,
     ThingTupleComparator,
     UserQueryCache,
@@ -447,6 +448,20 @@ def get_reported_comments(sr_id):
                           Comment.c._spam == False,
                           sort = db_sort('new'))
 
+@cached_query(RedditSrQueryCache)
+def get_reported_subreddits():
+    q = Subreddit._query(Subreddit.c.reported != 0,
+                         Subreddit.c._spam == False,
+                         sort = db_sort('new'))
+
+    if g.domain != 'reddit.com':
+        # don't try to render /r/promos on opensource installations
+        promo_sr_id = Subreddit.get_promote_srid()
+        if promo_sr_id:
+            q._filter(Subreddit.c._id != promo_sr_id)
+
+    return q
+
 @merged_cached_query
 def get_reported(sr, user=None, include_links=True, include_comments=True):
     sr_ids = moderated_srids(sr, user)
@@ -706,6 +721,10 @@ def get_user_reported_comments(user_id):
     return _user_reported_query(user_id, Comment)
 
 @cached_userrel_query
+def get_user_reported_subreddits(user_id):
+    return _user_reported_query(user_id, Subreddit)
+
+@cached_userrel_query
 def get_user_reported_messages(user_id):
     return _user_reported_query(user_id, Message)
 
@@ -713,6 +732,7 @@ def get_user_reported_messages(user_id):
 def get_user_reported(user_id):
     return [get_user_reported_links(user_id),
             get_user_reported_comments(user_id),
+            get_user_reported_subreddits(user_id),
             get_user_reported_messages(user_id)]
 
 
@@ -1451,6 +1471,9 @@ def edit(thing):
 def ban(things, filtered=True):
     query_cache_inserts, query_cache_deletes = _common_del_ban(things)
     by_srid = _by_srid(things, srs=False)
+    subreddits = [x for x in things if isinstance(x, Subreddit)]
+    if subreddits:
+        query_cache_deletes.append(get_reported_subreddits(), subreddits)
 
     for sr_id, sr_things in by_srid.iteritems():
         links = []
@@ -1529,6 +1552,9 @@ def _common_del_ban(things):
 
 def unban(things, insert=True):
     query_cache_deletes = []
+    subreddits = [x for x in things if isinstance(x, Subreddit)]
+    if subreddits:
+        query_cache_deletes.append(get_reported_subreddits(), subreddits)
 
     by_srid, srs = _by_srid(things)
     if not by_srid:
@@ -1593,6 +1619,9 @@ def new_report(thing, report_rel):
         elif isinstance(thing, Comment):
             m.insert(get_reported_comments(thing.sr_id), [thing])
             m.insert(get_user_reported_comments(reporter_id), [report_rel])
+        elif isinstance(thing, Subreddit):
+            m.insert(get_reported_subreddits(), [thing])
+            m.insert(get_user_reported_subreddits(reporter_id), [report_rel])
         elif isinstance(thing, Message):
             m.insert(get_user_reported_messages(reporter_id), [report_rel])
 

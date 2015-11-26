@@ -1333,7 +1333,8 @@ class RedditsController(ListingController):
         return keep
 
     def query(self):
-        if ((self.where in ('banned', 'quarantine') and not c.user_is_admin) or
+        admin_types = ('banned', 'quarantine', 'reported')
+        if ((self.where in admin_types and not c.user_is_admin) or
             (self.where == 'employee' and not (c.user_is_loggedin and
                                                c.user.employee))):
             abort(404)
@@ -1352,6 +1353,8 @@ class RedditsController(ListingController):
                 cache_time=5 * 60,
                 stale=True,
             )
+        elif self.where == 'reported':
+            reddits = queries.get_reported_subreddits()
         elif self.where == 'employee':
             reddits = Subreddit._query(
                 Subreddit.c.type=='employees_only',
@@ -1389,11 +1392,14 @@ class RedditsController(ListingController):
                 stale=True,
             )
 
-        sr_sort = '_date' if self.where in ('new', 'banned') else '_downs'
-        reddits._sort = desc(sr_sort)
+        # reported queue is already sorted
+        if self.where != 'reported':
+            sr_sort = '_date' if self.where in ('new', 'banned') else '_downs'
+            reddits._sort = desc(sr_sort)
 
-        if g.domain != 'reddit.com':
-            # don't try to render /r/promos on opensource installations
+        if g.domain != 'reddit.com' and self.where != 'reported':
+            # don't try to render /r/promos on opensource installations,
+            # already done within the cached reported queue
             promo_sr_id = Subreddit.get_promote_srid()
             if promo_sr_id:
                 reddits._filter(Subreddit.c._id != promo_sr_id)
