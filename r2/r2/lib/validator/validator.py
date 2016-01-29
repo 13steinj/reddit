@@ -1339,8 +1339,20 @@ class VSubmitParent(VByName):
 
             if link.archived:
                 self.set_error(errors.TOO_OLD)
-            elif link.locked and not sr.can_distinguish(c.user):
-                self.set_error(errors.THREAD_LOCKED)
+            elif not sr.can_distinguish(c.user):
+                if link.locked:
+                    self.set_error(errors.THREAD_LOCKED)
+                elif parent.locked:
+                    self.set_error(errors.PARTIAL_THREAD_LOCKED)
+                else:
+                    if parent.parents:
+                        parents_branch = Comment._byID36(
+                            set(parent.parents.lstrip(':').split(':')),
+                            data=True,
+                            return_dict=False
+                        )
+                        if any(p.locked for p in parents_branch):
+                            self.set_error(errors.PARTIAL_THREAD_LOCKED)
 
             if self.has_errors or link.can_comment(c.user):
                 return parent

@@ -115,6 +115,7 @@ error_list = dict((
         ('NO_LINKS', _("that subreddit only allows text posts")),
         ('TOO_OLD', _("that's a piece of history now; it's too late to reply to it")),
         ('THREAD_LOCKED', _("Comments are locked.")),
+        ('PARTIAL_THREAD_LOCKED', _("This comment or one of it's parents is locked.")),
         ('BAD_CSS_NAME', _('invalid css name')),
         ('BAD_CSS', _('invalid css')),
         ('BAD_COLOR', _('invalid color')),

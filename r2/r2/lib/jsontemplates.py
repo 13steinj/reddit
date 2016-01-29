@@ -832,6 +832,7 @@ class CommentJsonTemplate(ThingTemplate):
             "gilded": item.gildings,
             "likes": item.likes,
             "link_id": cls.get_link_name(item),
+            "locked": item.locked,
             "mod_reports": item.mod_reports,
             "user_reports": item.user_reports,
             "saved": item.saved,

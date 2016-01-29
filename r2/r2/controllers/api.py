@@ -1449,19 +1449,28 @@ class ApiController(RedditController):
     @noresponse(VUser(),
                 VModhash(),
                 VSrCanBan('id'),
-                thing=VByName('id', thing_cls=Link))
+                thing=VByName('id'))
     @api_doc(api_section.links_and_comments)
     def POST_lock(self, thing):
-        """Lock a link.
+        """Lock a link / comment thread.
 
-        Prevents a post from receiving new comments.
+        Prevents a post / comment thread from receiving new replies.
 
         See also: [/api/unlock](#POST_api_unlock).
 
         """
-        if thing.archived:
+        if not isinstance(thing, (Link, Comment)) or thing.archived:
             return abort(400, "Bad Request")
         VNotInTimeout().run(action_name="lock", target=thing)
+        if isinstance(thing, Comment):
+            if thing.link_slow.locked:
+                return abort(400, "Parent link is locked")
+            if thing.parents:
+                parent_tree = set(l.parents.lstrip(':').split(':'))
+                parent_tree = Comment._byID36(parent_tree, data=True, stale=True,
+                    ignore_missing=True, return_dict=False)
+                if any(parent.locked for parent in parent_tree):
+                    return abort(400, "Parent comment is locked")
         thing.locked = True
         thing._commit()
 
@@ -1472,19 +1481,28 @@ class ApiController(RedditController):
     @noresponse(VUser(),
                 VModhash(),
                 VSrCanBan('id'),
-                thing=VByName('id', thing_cls=Link))
+                thing=VByName('id')
     @api_doc(api_section.links_and_comments)
     def POST_unlock(self, thing):
-        """Unlock a link.
+        """Unlock a link / comment thread.
 
-        Allow a post to receive new comments.
+        Allow a post / comment thread to receive new replies.
 
         See also: [/api/lock](#POST_api_lock).
 
         """
-        if thing.archived:
+        if not isinstance(thing, (Link, Comment)) or thing.archived:
             return abort(400, "Bad Request")
         VNotInTimeout().run(action_name="unlock", target=thing)
+        if isinstance(thing, Comment):
+            if thing.link_slow.locked:
+                return abort(400, "Parent link is locked")
+            if thing.parents:
+                parent_tree = set(l.parents.lstrip(':').split(':'))
+                parent_tree = Comment._byID36(parent_tree, data=True, stale=True,
+                    ignore_missing=True, return_dict=False)
+                if any(parent.locked for parent in parent_tree):
+                    return abort(400, "Parent comment is locked")
         thing.locked = False
         thing._commit()
 
@@ -2091,7 +2109,7 @@ class ApiController(RedditController):
                 commentform.has_errors("parent", errors.DELETED_COMMENT,
                     errors.TOO_OLD, errors.USER_BLOCKED,
                     errors.USER_MUTED, errors.MUTED_FROM_SUBREDDIT,
-                    errors.THREAD_LOCKED)
+                    errors.THREAD_LOCKED, errors.PARTIAL_THREAD_LOCKED)
         ):
             return
 
