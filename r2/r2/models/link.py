@@ -1187,6 +1187,7 @@ class Comment(Thing, Printable):
                      new=False,
                      gildings=0,
                      banned_before_moderator=False,
+                     locked=False,
                      parents=None,
                      ignore_reports=False,
                      sendreplies=True,
@@ -1373,8 +1374,6 @@ class Comment(Thing, Printable):
         s = Printable.wrapped_cache_key(wrapped, style)
         s.extend([wrapped.body])
         s.extend([hasattr(wrapped, "link") and wrapped.link.contest_mode])
-        if hasattr(wrapped, "link") and wrapped.link.locked:
-            s.append('locked')
         return s
 
     def make_permalink(self, link, sr=None, context=None, anchor=False,
@@ -1546,6 +1545,15 @@ class Comment(Thing, Printable):
             item.profilepage = c.profilepage
             item.link = links.get(item.link_id)
             item.show_admin_context = user_is_admin
+
+            if not hasattr(item, "lock_set_in_builder"):
+                # get the tree then kill it after it's use is done
+                parent_tree = set(item.parents.lstrip(':').split(':')) if item.parents else []
+                if parent_tree:
+                    parent_tree = Comment._byID36(parent_tree, data=True, stale=True, ignore_missing=True, return_dict=False)
+                item.locked = item.locked or item.link.locked or any(parent.locked for parent in parent_tree)
+                del parent_tree
+            item.locked_key = item.locked 
 
             if (item.link._score <= 1 or item.score < 3 or
                 item.link._spam or item._spam or item.author._spam):
