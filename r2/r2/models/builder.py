@@ -1176,9 +1176,10 @@ class CommentBuilder(Builder):
                 return
             for comment in wrapped:
                 comment.locked = (comment.locked or self.link.locked)
-                parent = (self.wrapped_by_id.get(comment.parent_id) or
-                             Comment._byID36(comment.parent_id, data=True, stale=True))
-                comment.locked = comment.locked or parent.locked
+                if not comment.locked:
+                    parent = (self.wrapped_by_id.get(comment.parent_id) or
+                                  Comment._byID36(comment.parent_id, data=True, stale=True))
+                    comment.locked = parent.locked # I forget the name of the boolean law
                 comment.lock_set_in_builder = True
             # list so the iterator isn't exhausted in the for loop
             wrapped = list(chain(*[comment.child.things for comment in wrapped if hasattr(comment, "child")]))

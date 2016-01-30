@@ -1546,13 +1546,15 @@ class Comment(Thing, Printable):
             item.link = links.get(item.link_id)
             item.show_admin_context = user_is_admin
 
-            if not hasattr(item, "lock_set_in_builder"):
-                # get the tree then kill it after it's use is done
-                parent_tree = set(item.parents.lstrip(':').split(':')) if item.parents else []
-                if parent_tree:
-                    parent_tree = Comment._byID36(parent_tree, data=True, stale=True, ignore_missing=True, return_dict=False)
-                item.locked = item.locked or item.link.locked or any(parent.locked for parent in parent_tree)
-                del parent_tree
+            if not hasattr(item, "lock_set_in_builder") and not item.locked:
+                item.locked = item.link.locked
+                if not item.locked and item.parents: # even more boolean madness, whatever the two laws I'm using's names are.
+                    # get the tree then kill it after it's use is done
+                    parent_tree = set(item.parents.lstrip(':').split(':'))
+                    parent_tree = Comment._byID36(parent_tree, data=True, stale=True,
+                                                  ignore_missing=True, return_dict=False)
+                    item.locked = any(parent.locked for parent in parent_tree)
+                    del parent_tree
             item.locked_key = item.locked 
 
             if (item.link._score <= 1 or item.score < 3 or
