@@ -22,7 +22,7 @@
 
 from collections import defaultdict
 from copy import deepcopy
-from itertools import izip
+from itertools import izip, chain
 import datetime
 import heapq
 from random import shuffle
@@ -1191,6 +1191,19 @@ class CommentBuilder(Builder):
             comment.lock_set_in_builder = True
             if hasattr(comment, "child"):
                 self.set_reply_locks(comment.child.things)
+
+    def set_reply_locks_v2(self, wrapped):
+        # sort doesn't matter
+        while True:
+            if not wrapped:
+                return # break is wasteful, return skips an unneeded step
+            for comment in wrapped:
+                comment.locked = (comment.locked or self.link.locked or
+                    getattr(self.wrapped_by_id.get(comment.parent_id), "locked", False))
+                comment.lock_set_in_builder = True
+            # list so the iterator isn't exhausted in the for loop
+            wrapped = list(chain(*[comment.child.things for comment in wrapped if hasattr(comment, "child")]))
+
 
     def item_iter(self, a):
         for i in a:
