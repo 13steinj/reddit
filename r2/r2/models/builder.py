@@ -1170,36 +1170,15 @@ class CommentBuilder(Builder):
         timer.stop()
         return final
 
-    @staticmethod
-    def _reply_locks_sort(comment):
-        if not hasattr(comment, "child"):
-            return 0
-        return len(comment.child.things)
-
     def set_reply_locks(self, wrapped):
-        # so I can understand this when I'm not as drunk:
-        # sort the comments by the amount of children
-        # no children means first in list, set attribute, done
-        # children means set attribute, and then, run this on the children.
-        # these children are able to get their parent checked and set if parent.locked == True
-        # because wrapped_by_id is a dictionary, by my own definition a proxy like object,
-        # which means any changes in any ordered loop will occur onto the dictionary proxy as well
-        # locked_set_by_tree is set to stop Comment.add_props from running this process redundantly
-        for comment in sorted(wrapped, key=self._reply_locks_sort):
-            comment.locked = (comment.locked or self.link.locked or
-                getattr(self.wrapped_by_id.get(comment.parent_id), "locked", False))
-            comment.lock_set_in_builder = True
-            if hasattr(comment, "child"):
-                self.set_reply_locks(comment.child.things)
-
-    def set_reply_locks_v2(self, wrapped):
-        # sort doesn't matter
         while True:
             if not wrapped:
-                return # break is wasteful, return skips an unneeded step
+                return
             for comment in wrapped:
-                comment.locked = (comment.locked or self.link.locked or
-                    getattr(self.wrapped_by_id.get(comment.parent_id), "locked", False))
+                comment.locked = (comment.locked or self.link.locked)
+                parent = (self.wrapped_by_id.get(comment.parent_id) or
+                             Comment._byID36(comment.parent_id, data=True, stale=True))
+                comment.locked = comment.locked or parent.locked
                 comment.lock_set_in_builder = True
             # list so the iterator isn't exhausted in the for loop
             wrapped = list(chain(*[comment.child.things for comment in wrapped if hasattr(comment, "child")]))
