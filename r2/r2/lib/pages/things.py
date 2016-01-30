@@ -197,6 +197,19 @@ class CommentButtons(PrintableButtons):
         thing_takendown = getattr(thing, 'admin_takedown', False)
         editable = is_author and thing_editable and not thing_takendown
 
+        show_lock = show_unlock = error_reply_buttons = False
+        lockable = not thing.archived and not thing.link.locked
+        if lockable:
+            parents = Comment._byID36(set(thing.parents.lstrip(':').split(':')),
+                                      data=True, return_dict=False) # is repeat, find way to do only once later
+            lockable = not any(p.locked for p in parents)
+        if lockable:
+            error_reply_buttons = thing.locked
+            show_lock = (not thing.locked) and thing.can_ban
+            show_unlock = (not show_lock) and thing.can_ban
+
+
+
         # do we show the report button?
         show_report = not is_author and report and thing.can_reply
         # do we show the delete button?
@@ -245,11 +258,14 @@ class CommentButtons(PrintableButtons):
                                   parent_permalink = thing.parent_permalink, 
                                   can_reply = thing.can_reply,
                                   locked = thing.link.locked,
+                                  error_reply_buttons = error_reply_buttons,
                                   suppress_reply_buttons = suppress_reply_buttons,
                                   show_report=show_report,
                                   mod_reports=thing.mod_reports,
                                   user_reports=thing.user_reports,
                                   show_distinguish = show_distinguish,
+                                  show_lock = show_lock,
+                                  show_unlock = show_unlock,
                                   show_sticky_comment=show_sticky_comment,
                                   show_delete = show_delete,
                                   show_givegold=show_givegold,
