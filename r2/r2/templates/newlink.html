@@ -105,9 +105,59 @@ ${thing.formtabs_menu}
   </%utils:round_field>
 </div>
 
+<%def name="submit_rules(subreddit)">
+    <%
+        rules = subreddit.community_rules
+        rules = [r for r in rules if ((r['kind'] == 'link') or (r['kind'] == 'all'))]
+        last_rule = None
+        if (len(rules) % 2):
+            ## is odd
+            last_rule = rules.pop(-1)
+        rule_rows = len(rules)/2
+        rule_col1 = rules[:rule_rows]
+        rule_col2 = rules[rule_rows:]
+    %>
+    <table>
+        <tbody>
+            <th><tr><td>${_('Rules')}</td></tr></th>
+            %for row in xrange(rule_rows):
+                <tr>
+                    <td>
+                        <h1>${rule_col1[row]['short_name']}<h1>
+                        <div class="rule_description">
+                            ${unsafe(safemarkdown(rule_col1[row]['description']))}
+                        </div>
+                    </td>
+                    <td>
+                        <h1>${rule_col2[row]['short_name']}<h1>
+                        <div class="rule_description">
+                            ${unsafe(safemarkdown(rule_col2[row]['description']))}
+                        </div>
+                    </td>
+                </tr>
+            %endfor
+            %if last_rule:
+                <td>
+                    <h1>${last_rule['short_name']}<h1>
+                    <div class="rule_description">
+                        ${unsafe(safemarkdown(last_rule['description']))}
+                    </div>
+                </td>
+            %endif
+        </tbody>
+    </table>
+</%def>
+
 <div class="spacer">
     <div class="submit_text roundfield">
         <h1>${_wsf('submitting to %(sr)s', sr=unsafe('/r/<span class="sr"></span>'))}</h1>
+        <span class="content rules-container">
+            %if thing.default_sr and thing.default_sr.community_rules:
+                %if any(((rule['kind'] == 'link') or (rule['kind'] == 'all')) for rule in thing.default_sr.community_rules):
+                    ${submit_rules(thing.default_sr)}
+                %endif
+            %endif
+        </span>
         <span class="content md-container">
             %if thing.default_sr and thing.default_sr.submit_text:
                 ${unsafe(safemarkdown(thing.default_sr.submit_text))}
