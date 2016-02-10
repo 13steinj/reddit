@@ -1077,8 +1077,23 @@ class MessageController(ListingController):
         elif not c.default_sr or self.where in ('moderator', 'multi'):
             buttons = (NavButton(_("all"), "inbox"),
                        NavButton(_("unread"), "unread"))
-            return [NavMenu(buttons, base_path = '/message/moderator/',
-                            default = 'inbox', type = "flatlist")]
+            srs = Subreddit._byID(Subreddit.reverse_moderator_ids(c.user))
+            srnames = sorted([sr.path.rstrip('/') for id, sr in srs.iteritems()
+                              if sr.is_moderator_with_perms(c.user, 'mail')], key=str.lower)
+            if len(srnames) <= 1:
+                return [NavMenu(buttons, base_path='/message/moderator/', default='inbox', type="flatlist")]
+            if self.subwhere != 'unread':
+                sr_switch_prefix = '%s/message/moderator'
+                sr_switch_main_prefix = '/message/moderator'
+            else:
+                sr_switch_prefix = '%s/message/moderator/unread'
+                sr_switch_main_prefix = '/message/moderator/unread'
+            sr_switch_buttons = [NavButton(_("all"), sr_switch_main_prefix, sr_path=False, css_class='primary')]
+            sr_switch_buttons.extend([NavButton(srname.split('/')[-1], sr_switch_prefix % srname, sr_path=False)
+                                      for srname in srnames])
+            sr_switch_default = sr_switch_prefix % c.site.path.rstrip('/') if isinstance(c.site, Subreddit) else sr_switch_main_prefix
+            return [NavMenu(buttons, base_path='/message/moderator/', default='inbox', type="flatlist"),
+                    NavMenu(sr_switch_buttons, base_path='/', title=_("switch to subreddit"), default=sr_switch_default, type="lightdrop")]
         return []
 
 
