@@ -1088,12 +1088,20 @@ class MessageController(ListingController):
             else:
                 sr_switch_prefix = '%s/message/moderator/unread'
                 sr_switch_main_prefix = '/message/moderator/unread'
-            sr_switch_buttons = [NavButton(_("all"), sr_switch_main_prefix, sr_path=False, css_class='primary')]
+            if isinstance(c.site, ModContribSR):
+                sr_switch_main_prefix = sr_switch_prefix % c.site.path.rstrip('/')
+            sr_switch_buttons = [NavButton(_("all"), sr_switch_main_prefix,
+                                           sr_path=False)]
+            if isinstance(c.site, MultiReddit) and not isinstance(c.site, ModContribSR):
+                sr_switch_buttons.append(NavButton(_("current multireddit"),
+                                                   sr_switch_prefix % c.site.path.rstrip('/'),
+                                                   sr_path=False))
             sr_switch_buttons.extend([NavButton(srname.split('/')[-1], sr_switch_prefix % srname, sr_path=False)
                                       for srname in srnames])
-            sr_switch_default = sr_switch_prefix % c.site.path.rstrip('/') if isinstance(c.site, Subreddit) else sr_switch_main_prefix
+            sr_switch_default = sr_switch_prefix % c.site.path.rstrip('/')
             return [NavMenu(buttons, base_path='/message/moderator/', default='inbox', type="flatlist"),
-                    NavMenu(sr_switch_buttons, base_path='/', title=_("switch to subreddit"), default=sr_switch_default, type="lightdrop")]
+                    NavMenu(sr_switch_buttons, base_path='/', title=_("switch to subreddit"),
+                            default=sr_switch_default, type="lightdrop")]
         return []
 
 
