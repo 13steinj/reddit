@@ -176,6 +176,9 @@ class Account(Thing):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def get_or_make_reporthash(self, sr):
+        return AccountReportHashesBySubreddit.get_or_make_hash(self, sr)
+
     def has_interacted_with(self, sr):
         try:
             r = SubredditParticipationByAccount.fast_query(self, [sr])
@@ -1159,3 +1162,31 @@ class QuarantinedSubredditOptInsByAccount(tdb_cassandra.DenormalizedRelation):
         except tdb_cassandra.NotFound:
             return False
         return (user, subreddit) in r
+
+class AccountReportHashesBySubreddit(tdb_cassandra.DenormalizedRelation):
+    _use_db = True
+    _write_last_modified = False
+    _views = []
+    _extra_schema_creation_args = {
+        "key_validation_class": tdb_cassandra.ASCII_TYPE,
+        "default_validation_class": tdb_cassandra.DATE_TYPE,
+    }
+
+    @classmethod
+    def value_for(cls, user, subreddit):
+        reporthash = hooks.get_hook("reporthash.generate").call_until_return(user=user, subreddit=subreddit)
+        if reporthash is not None:
+            return reporthash
+        # no plugin for report hashes, just use their id's
+        return "%s_%s" % (user._id36, subreddit._id36)
+
+    @classmethod
+    def get_or_make_hash(cls, user, subreddit):
+        try:
+            r = cls.fast_query(user, [subreddit])
+        except tdb_cassandra.NotFound:
+            r = {}
+        if (user, subreddit) in r:
+            return r[(user, subreddit)]
+        r = cls.create(user, subreddit, return_values=True)
+        return r[(user, subreddit)]
