@@ -179,6 +179,12 @@ class Account(Thing):
     def get_or_make_reporthash(self, sr):
         return AccountReportHashesBySubreddit.get_or_make_hash(self, sr)
 
+    def regenerate_reporthash(self, sr):
+        oldhash = self.get_or_make_reporthash(sr)
+        newhash = AccountReportHashesBySubreddit.regenerate_hash(self, sr)
+        sr.update_reporthash_blocks(oldhash, newhash)
+        return newhash
+
     def has_interacted_with(self, sr):
         try:
             r = SubredditParticipationByAccount.fast_query(self, [sr])
@@ -1174,11 +1180,21 @@ class AccountReportHashesBySubreddit(tdb_cassandra.DenormalizedRelation):
 
     @classmethod
     def value_for(cls, user, subreddit):
-        reporthash = hooks.get_hook("reporthash.generate").call_until_return(user=user, subreddit=subreddit)
+        # NOTE: NEVER USE THIS METHOD DIRECTLY TO MAKE REPORT HASHES
+        # THE RESULT WOULD BE INVALID AND POISONED BY TIME ITSELF
+        # USE get_or_make_hash OR regenerate_hash INSTEAD!
+        timesalt = time.time()
+        reporthash = hooks.get_hook(
+            "reporthash.generate"
+        ).call_until_return(
+            user=user,
+            subreddit=subreddit,
+            timesalt=timesalt
+        )
         if reporthash is not None:
             return reporthash
-        # no plugin for report hashes, just use their id's
-        return "%s_%s" % (user._id36, subreddit._id36)
+        # no plugin for report hashes, just use their id's and the time
+        return "%s_%s_%s" % (user._id36, subreddit._id36, timesalt)
 
     @classmethod
     def get_or_make_hash(cls, user, subreddit):
@@ -1188,5 +1204,11 @@ class AccountReportHashesBySubreddit(tdb_cassandra.DenormalizedRelation):
             r = {}
         if (user, subreddit) in r:
             return r[(user, subreddit)]
+        r = cls.create(user, subreddit, return_values=True)
+        return r[(user, subreddit)]
+
+    @classmethod
+    def regenerate_hash(cls, user, subreddit):
+        # returns the regenerated hash
         r = cls.create(user, subreddit, return_values=True)
         return r[(user, subreddit)]
