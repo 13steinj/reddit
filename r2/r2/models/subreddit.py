@@ -1314,11 +1314,18 @@ class Subreddit(Thing, Printable, BaseSite):
         # for consistency with is_banned, is_muted, etc.
         return {user.name: retval.values()[0]} if retval else None
 
-    def block_from_reporting(self, userorhash):
-        return BlockedReportHashesBySubreddit.block(userorhash)
+    def block_from_reporting(self, user_or_hash, hours=0):
+        return BlockedReportHashesBySubreddit.block(user_or_hash, hours)
 
     def unblock_from_reporting(self, userorhash):
-        return BlockedReportHashesBySubreddit.unblock(userorhash)
+        return BlockedReportHashesBySubreddit.unblock(user_or_hash)
+
+    def update_reporthash_blocks(self, oldhash, newhash):
+        was_blocked = self.is_blocked_reporthash(oldhash)
+        if was_blocked:
+            diff = (datetime.now(g.tz) - was_blocked).hours
+            self.unblock_from_reporting(oldhash)
+            return self.block_from_reporting(newhash, hours)
 
     def add_gilding_seconds(self):
         from r2.models.gold import get_current_value_of_month
@@ -2986,9 +2993,9 @@ def unmute_hook(data):
 
 class BlockedReportHashesBySubreddit(object):
     @classmethod
-    def block(cls, sr, user_or_hash):
+    def block(cls, sr, user_or_hash, hours=0):
         from r2.models import ModAction
-        NUM_HOURS = 48
+        NUM_HOURS = hours or 48
 
         # admins can block by users themselves for ease
         hash = user_or_hash.get_or_make_reporthash(sr) if isinstance(user_or_hash, Account) else user_or_hash
