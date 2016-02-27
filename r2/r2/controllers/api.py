@@ -1653,10 +1653,30 @@ class ApiController(RedditController):
 
         jquery.refresh()
 
+    @require_oauth2_scope("report", "identity")
+    @validatedForm(
+        VUser(),
+        VModhash(),
+        sr=VSRByName('srname'),
+    )
+    def POST_regenerate_reporthash(self, form, jquery, sr):
+        """Regnerate and return the user-subreddit reporthash.
+
+        If for whatever reason you feel that your reporting anonymity has been
+        compromised, use this endpoint to regenerate the user-subreddit reporthash.
+
+        See also: [/api/report](#POST_api_report).
+
+        """
+        newhash = c.user.regenerate_reporthash(sr)
+        return self.api_wrapper({'newhash': newhash})
+    
+
     @require_oauth2_scope("report")
     @validatedForm(
         VUser(),
         VModhash(),
+        VReportHashByThingName('thing_id'),
         thing=VByName('thing_id'),
         reason=VLength('reason', max_length=100, empty_error=None),
         site_reason=VLength('site_reason', max_length=100, empty_error=None),

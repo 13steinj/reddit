@@ -942,6 +942,16 @@ class VByName(Validator):
                 self.param: "[fullname](#fullnames) of a %s" % thingtype,
             }
 
+class VReportHashByThingName(VByName):
+    def run(self, item):
+        item = super(VReportHashByThingName, self).run(item)
+        if isinstance(item, (Link, Comment)):
+            sr = item.subreddit_slow
+            reporthash = c.user.get_or_make_reporthash(sr)
+            if sr.is_blocked_reporthash(reporthash):
+                return abort(403) # self.set_error(errors.BLOCKED_FROM_REPORTING)
+            return reporthash
+
 class VByNameIfAuthor(VByName):
     def run(self, fullname):
         thing = VByName.run(self, fullname)
