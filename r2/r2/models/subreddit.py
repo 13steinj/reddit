@@ -1301,6 +1301,25 @@ class Subreddit(Thing, Printable, BaseSite):
     def get_muted_items(self, names=None):
         return MutedAccountsBySubreddit.search(self, names)
 
+    def get_blocked_reporthashes(self, hashes=None):
+        return BlockedReportHashesBySubreddit.search(self, hashes)
+
+    def is_blocked_reporthash(self, hash):
+        retval = self.get_blocked_reporthashes([hash])
+        # for consistency with is_banned, is_muted, etc.
+        return retval if retval else None
+
+    def is_blocked_from_reporting(self, user):
+        retval = self.is_blocked_reporthash(user.get_or_make_reporthash())
+        # for consistency with is_banned, is_muted, etc.
+        return {user.name: retval.values()[0]} if retval else None
+
+    def block_from_reporting(self, userorhash):
+        return BlockedReportHashesBySubreddit.block(userorhash)
+
+    def unblock_from_reporting(self, userorhash):
+        return BlockedReportHashesBySubreddit.unblock(userorhash)
+
     def add_gilding_seconds(self):
         from r2.models.gold import get_current_value_of_month
         seconds = get_current_value_of_month()
@@ -2963,6 +2982,76 @@ def unmute_hook(data):
 
         subreddit.remove_muted(user)
         MutedAccountsBySubreddit.unmute(subreddit, user, automatic=True)
+
+
+class BlockedReportHashesBySubreddit(object):
+    @classmethod
+    def block(cls, sr, user_or_hash):
+        from r2.models import ModAction
+        NUM_HOURS = 48
+
+        # admins can block by users themselves for ease
+        hash = user_or_hash.get_or_make_reporthash(sr) if isinstance(user_or_hash, Account) else user_or_hash
+        info = {
+            'sr': sr._id36,
+            'hash': hash
+        }
+
+        result = TryLaterBySubject.schedule(
+            cls.cancel_rowkey(sr),
+            cls.cancel_colkey(hash),
+            json.dumps(info),
+            datetime.timedelta(hours=NUM_HOURS),
+            trylater_rowkey=cls.schedule_rowkey(),
+        )
+        return {hash: result.keys()[0]}
+
+    @classmethod
+    def cancel_colkey(cls, hash):
+        # for consistency
+        return hash
+
+    @classmethod
+    def cancel_rowkey(cls, subreddit):
+        return "srreportblock:%s" % subreddit.name
+
+    @classmethod
+    def schedule_rowkey(cls):
+        return "srreportblock"
+
+    @classmethod
+    def search(cls, subreddit, subjects):
+        results = TryLaterBySubject.search(cls.cancel_rowkey(subreddit),
+                                           subjects)
+
+        return {
+            hash: datetime.datetime.fromtimestamp(convert_uuid_to_time(uu),
+                    g.tz)
+                for hash, uu in results.iteritems()
+        }
+
+    @classmethod
+    def unblock(cls, sr, hash, automatic=False):
+        from r2.models import ModAction
+
+        TryLaterBySubject.unschedule(
+            cls.cancel_rowkey(sr),
+            cls.cancel_colkey(hash),
+            cls.schedule_rowkey(),
+        )
+
+        if automatic:
+            unblocker = Account.system_user()
+            # ModAction.create(sr, unblocker, 'unblockreporter', target=hash)
+
+
+@trylater_hooks.on('trylater.srreportblock')
+def unreportblock_hook(data):
+    for blob in data.itervalues():
+        blockinfo = json.loads(blob)
+        subreddit = Subreddit._byID36(blockinfo['sr'], data=True)
+        hash = blockinfo['hash']
+        BlockedReportHashesBySubreddit.unblock(subreddit, hash, automatic=True)
 
 
 class SubredditsActiveForFrontPage(tdb_cassandra.View):
