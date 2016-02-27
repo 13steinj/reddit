@@ -904,7 +904,7 @@ class DenormalizedRelation(object):
 
     @classmethod
     @will_write
-    def create(cls, thing1, thing2s, **kw):
+    def create(cls, thing1, thing2s, return_values=False, **kw):
         """Create a relationship between thing1 and thing2s.
 
         If there are any other views of this data, they will be updated as
@@ -925,6 +925,14 @@ class DenormalizedRelation(object):
         if cls._write_last_modified:
             from r2.models.last_modified import LastModified
             LastModified.touch(thing1._fullname, cls._last_modified_name)
+
+        if return_values:
+            # emulate a dict that would be returned by fast_query
+            # if requested cause some value_for methods are slow
+            # and said values may be used right away
+            thing2_map = {thing2._id36: thing2 for thing2 in thing2s}
+            return {(thing1, thing2_map[thing2_id]): value
+                    for thing2_id, value in values.iteritems()}
 
     @classmethod
     @will_write
