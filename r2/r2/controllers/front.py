@@ -694,6 +694,36 @@ class FrontController(RedditController):
                           location="log",
                           extension_handling=extension_handling).render()
 
+    @require_oauth2_scope("modlog")
+    @disable_subreddit_css()
+    @validate(
+        mod=nop('mod', docs={"mod": "(optional) a moderator filter"}),
+        action=VOneOf('type', ModAction.actions),
+    )
+    def GET_moderationlog_matrix(self, mod, action):
+        if not c.user_is_loggedin or not (c.user_is_admin or
+                                          c.site.is_moderator(c.user)):
+            return self.abort404()
+
+        VNotInTimeout().run(action_name="pageview", details_text="modlog")
+        if isinstance(c.site, (MultiReddit, ModSR)):
+            srs = Subreddit._byID(c.site.sr_ids, return_dict=False)
+            # grab all moderators
+            mod_ids = set(Subreddit.get_all_mod_ids(srs))
+            mods = Account._byID(mod_ids, data=True)
+        elif isinstance(c.site, FakeSubreddit):
+            self.abort404()
+        else:
+            srs = c.site
+            mods = Account._byID(srs.moderators, data=True)
+        mods = {utils.to36(id): acc for id, acc in mods.iteritems()}
+        if not mod:
+            mod = mods.values()
+        return EditReddit(
+            content=ModMatrix(srs, mods, "all", mod, action),
+            location="log",
+        ).render()
+
     def _make_spamlisting(self, location, only, num, after, reverse, count):
         include_links, include_comments = True, True
         if only == 'links':

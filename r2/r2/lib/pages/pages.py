@@ -95,7 +95,7 @@ from r2.models.promo import (
 )
 from r2.models.token import OAuth2Client, OAuth2AccessToken
 from r2.models import traffic
-from r2.models import ModAction
+from r2.models import ModAction, ModActionBuilder
 from r2.models import Thing
 from r2.models.wiki import WikiPage, ImagesByWikiPage
 from r2.lib.db import tdb_cassandra, queries
@@ -4054,6 +4054,23 @@ class ModTableItem(InvitedModTableItem):
         elif c.user_is_admin:
             return True
         return c.user != user and c.site.can_demod(c.user, user)
+
+
+class ModMatrix(Templated):
+    """A modlog matrix page"""
+    def __init__(self, srs, site_mods, rangetype, mod=None, action=None):
+        from r2.lib.menus import QueryButton
+        matrix_header = [QueryButton('', actionname, query_param='type', css_class="modactions %s" % actionname)
+                         for actionname in ModAction.actions]
+        for button in matrix_header:
+            button.build(request.path)
+        super(ModMatrix, self).__init__(
+            matrix=ModActionBuilder.wrap_matrix(
+                ModAction.get_matrix(srs, rangetype, mod, action)
+            ),
+            matrix_header=matrix_header,
+            site_mods=site_mods,
+        )
 
 
 class ModToolsPage(Reddit):

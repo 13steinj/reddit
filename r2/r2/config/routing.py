@@ -182,6 +182,7 @@ def make_map(config):
        connect('/about/message/:where', controller='message',
           action='listing')
        connect('/about/log', controller='front', action='moderationlog')
+       connect('/about/log/matrix', controller='front', action='moderationlog_matrix')
        connect('/about/:location', controller='front',
           action='spamlisting',
           requirements=dict(location='reports|spam|modqueue|unmoderated|edited'))
