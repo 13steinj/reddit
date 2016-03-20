@@ -661,6 +661,25 @@ class ModActionBuilder(QueryBuilder):
 
         return wrapped
 
+    @classmethod
+    def wrap_matrix(cls, matrix):
+        for daterange, modactiondict in matrix.iteritems():
+            mods = defaultdict(lambda: 0)
+            actioncount = defaultdict(lambda: 0)
+            for modinfotup, actions in modactiondict.iteritems():
+                modactiondict[modinfotup] = len(actions)
+                mods[modinfotup[0]] += modactiondict[modinfotup]
+                actioncount[modinfotup[1]] += modactiondict[modinfotup]
+            for mod, mnum in mods.iteritems():
+                modactiondict[(mod, '__total__')] = mnum
+            for actionname, anum in actioncount.iteritems():
+                modactiondict[('__total__', actionname)] = anum
+            modactiondict[('__total__', '__total__')] = sum(
+                modtotal for modid, modtotal in mods.iteritems()
+            )
+            matrix[daterange] = dict(modactiondict)
+        return dict(matrix)
+
 
 class SimpleBuilder(IDBuilder):
     def thing_lookup(self, names):

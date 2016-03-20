@@ -20,9 +20,12 @@
 # Inc. All Rights Reserved.
 ###############################################################################
 
-from datetime import timedelta
+from datetime import timedelta, date
 import itertools
 from uuid import UUID
+from sys import maxint as MATRIX_COUNT
+import calendar
+from collections import defaultdict, deque
 
 from pycassa.system_manager import TIME_UUID_TYPE
 from pylons import request
@@ -277,6 +280,74 @@ class ModAction(tdb_cassandra.UuidThing):
             q = ModActionBySRAction.query(rowkeys, after=after, reverse=reverse, count=count)
 
         return q
+
+    @classmethod
+    def get_matrix(cls, srs, rangetype="all", mod=None, action=None):
+        """Return a dictionary like matrix of
+           {(datestart, dateend) :
+               {(modid36, actionkey) :
+                   [list of actions]}}
+           to be used for mod matrixes.
+
+        Rangetype should be one of week, month, year, or all.
+
+        The wrapped matrix should not have the action mod actions,
+        as that would take long to load. Instead, get the count,
+        as that's all that is needed.
+        """
+        def _week_calc(_q):
+            by_week = defaultdict(deque)
+            for action in _q:
+                day_of_action = action.date.date()
+                daysdiff = day_of_action.isocalendar()[-1]  # days extra from week start
+                startrange = day_of_action - timedelta(days=daysdiff)
+                endrange = startrange + timedelta(days=7) # 7 days in a week
+                key = (startrange, endrange)
+                by_week[key].append(action)
+            return by_week
+        def _month_calc(_q):
+            by_month = defaultdict(deque)
+            for action in _q:
+                startrange = date(action.date.year, action.date.month, 1) # first day
+                if action.date.month in (1,3,5,7,8,10,12):
+                    endrange = date(action.date.year, action.date.month, 31) # month with 31 days
+                elif action.date.month != 2:
+                    endrange = date(action.date.year, action.date.month, 30) # month with 30 days
+                elif calendar.isleap(action.date.year):
+                    endrange = date(action.date.year, action.date.month, 29) # it's febuary on a leap year
+                else:
+                    endrange = date(action.date.year, action.date.month, 28) # it's febuary on a non leap year
+                key = (startrange, endrange)
+                by_month[key].append(action)
+            return by_month
+        def _year_calc(_q):
+            by_year = defaultdict(deque)
+            for action in _q:
+                startrange = date(action.date.year, 1, 1) # jan 1st of that year
+                endrange = date(action.date.year, 12, 31) # dec 31st of that year
+                key = (startrange, endrange)
+                by_year[key].append(action)
+            return by_year
+        def _all_calc(_q):
+            listed_q = list(_q)
+            startrange = listed_q[0].date.date()
+            endrange = listed_q[-1].date.date()
+            return {(startrange, endrange): listed_q}
+        def _group_by_mod_and_action(_q):
+            by_mod_and_action = defaultdict(deque)
+            for action in _q:
+                by_mod_and_action[(action.mod_id36, action.action)].append(action)
+            return by_mod_and_action
+        q = cls.get_actions(srs, mod, action, count=MATRIX_COUNT)
+        by_ranges = {
+            "week": _week_calc,
+            "month": _month_calc,
+            "year": _year_calc,
+            "all": _all_calc,
+        }[rangetype](q)
+        for daterange, actions in by_ranges.iteritems():
+            by_ranges[daterange] = _group_by_mod_and_action(actions)
+        return by_ranges
 
     @property
     def details_text(self):
