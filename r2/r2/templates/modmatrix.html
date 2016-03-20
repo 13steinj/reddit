@@ -1,0 +1,38 @@
+<div class="matrix-container">
+    %for daterange, rangedmatrix in thing.matrix.iteritems():
+        <div class="ranged-matrix">
+            <h1>${daterange[0].isoformat()} - ${daterange[1].isoformat()}</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Mod</th>
+                        %for actionbutton in thing.matrix_header:
+                            <th>${actionbutton}</th>
+                        %endfor
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    %for modid36, mod in thing.site_mods.iteritems():
+                        <tr>
+                            <td>${mod.name}</td>
+                            %for button in thing.matrix_header:
+                                <td>${rangedmatrix.get((modid36, button.dest), 0)}</td>
+                            %endfor
+                            <td>${rangedmatrix.get((modid36, '__total__'), 0)}</td>
+                        </tr>
+                    %endfor
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td>Total</td>
+                        %for footerbutton in thing.matrix_header:
+                            <td>${rangedmatrix.get(('__total__', footerbutton.dest), 0)}</td>
+                        %endfor
+                        <td>${rangedmatrix.get(('__total__', '__total__'), 0)}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    %endfor
+</div>
