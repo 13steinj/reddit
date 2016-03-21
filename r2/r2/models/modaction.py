@@ -295,6 +295,7 @@ class ModAction(tdb_cassandra.UuidThing):
         as that would take long to load. Instead, get the count,
         as that's all that is needed.
         """
+        _day_key = lambda action: (action.date.date(), action.date.date())
         def _week_key(action):
             day_of_action = action.date.date()
             daysdiff = day_of_action.isocalendar()[-1]  # days extra from week start
@@ -330,9 +331,10 @@ class ModAction(tdb_cassandra.UuidThing):
                 by_ranges[(startrange, endrange)][(action.mod_id36, action.action)].append(action)
         else:
             date_key_calculator = {
+                "day": _day_key,
                 "week": _week_key,
                 "month": _month_key,
-                "year": _year_key,
+                # "year": _year_key,
             }[rangetype]
             for action in q:
                 by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)].append(action)
