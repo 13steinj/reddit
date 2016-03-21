@@ -319,30 +319,23 @@ class ModAction(tdb_cassandra.UuidThing):
             startrange = date(action.date.year, 1, 1) # jan 1st of that year
             endrange = date(action.date.year, 12, 31) # dec 31st of that year
             return (startrange, endrange)
-        def _all_calc(_q):
-            listed_q = list(_q)
+        q = cls.get_actions(srs, mod, action, count=MATRIX_COUNT)
+        by_ranges = defaultdict(lambda: defaultdict(list))
+        if rangetype == "all":
+            listed_q = list(q)
             startrange = listed_q[0].date.date()
             endrange = listed_q[-1].date.date()
-            return {(startrange, endrange): listed_q}
-        def _group_by_mod_and_action(_q):
             by_mod_and_action = defaultdict(list)
-            for action in _q:
-                by_mod_and_action[(action.mod_id36, action.action)].append(action)
-            return by_mod_and_action
-        q = cls.get_actions(srs, mod, action, count=MATRIX_COUNT)
-        if rangetype == "all":
-            by_ranges = _all_calc(q)
+            for action in listed_q:
+                by_ranges[(startrange, endrange)][(action.mod_id36, action.action)].append(action)
         else:
-            key_calculator = {
+            date_key_calculator = {
                 "week": _week_key,
                 "month": _month_key,
                 "year": _year_key,
             }[rangetype]
-            by_ranges = defaultdict(list)
             for action in q:
-                by_ranges[key_calculator(action)].append(action)
-        for daterange, actions in by_ranges.iteritems():
-            by_ranges[daterange] = _group_by_mod_and_action(actions)
+                by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)].append(action)
         return by_ranges
 
     @property
