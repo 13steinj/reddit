@@ -667,7 +667,8 @@ class ModActionBuilder(QueryBuilder):
             mods = defaultdict(lambda: 0)
             actioncount = defaultdict(lambda: 0)
             for modinfotup, actions in modactiondict.iteritems():
-                modactiondict[modinfotup] = len(actions)
+                if not isinstance(actions, int):
+                    modactiondict[modinfotup] = len(actions)
                 mods[modinfotup[0]] += modactiondict[modinfotup]
                 actioncount[modinfotup[1]] += modactiondict[modinfotup]
             for mod, mnum in mods.iteritems():
