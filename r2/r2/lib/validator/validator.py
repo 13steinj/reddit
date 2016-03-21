@@ -2268,6 +2268,8 @@ class VOneOf(Validator):
     def run(self, val):
         if self.options and val not in self.options:
             self.set_error(errors.INVALID_OPTION, code=400)
+            if callable(self.default):
+                return self.default(val)
             return self.default
         else:
             return val
