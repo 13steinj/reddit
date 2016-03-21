@@ -282,7 +282,7 @@ class ModAction(tdb_cassandra.UuidThing):
         return q
 
     @classmethod
-    def get_matrix(cls, srs, rangetype="all", mod=None, action=None):
+    def get_matrix(cls, srs, rangetype="all", mod=None, action=None, count_only=True):
         """Return a dictionary like matrix of
            {(datestart, dateend) :
                {(modid36, actionkey) :
@@ -321,14 +321,18 @@ class ModAction(tdb_cassandra.UuidThing):
             endrange = date(action.date.year, 12, 31) # dec 31st of that year
             return (startrange, endrange)
         q = cls.get_actions(srs, mod, action, count=MATRIX_COUNT)
-        by_ranges = defaultdict(lambda: defaultdict(list))
+        inner_func = (lambda: 0) if count_only else list
+        by_ranges = defaultdict(lambda: defaultdict(inner_func))
         if rangetype == "all":
             listed_q = list(q)
             startrange = listed_q[0].date.date()
             endrange = listed_q[-1].date.date()
             by_mod_and_action = defaultdict(list)
             for action in listed_q:
-                by_ranges[(startrange, endrange)][(action.mod_id36, action.action)].append(action)
+                if count_only:
+                    by_ranges[(startrange, endrange)][(action.mod_id36, action.action)] += 1
+                else:
+                    by_ranges[(startrange, endrange)][(action.mod_id36, action.action)].append(action)
         else:
             date_key_calculator = {
                 "day": _day_key,
@@ -337,7 +341,10 @@ class ModAction(tdb_cassandra.UuidThing):
                 # "year": _year_key,
             }[rangetype]
             for action in q:
-                by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)].append(action)
+                if count_only:
+                    by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)] += 1
+                else:
+                    by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)].append(action)
         return by_ranges
 
     @property
