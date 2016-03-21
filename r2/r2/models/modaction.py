@@ -289,19 +289,20 @@ class ModAction(tdb_cassandra.UuidThing):
                    [list of actions]}}
            to be used for mod matrixes.
 
-        Rangetype should be one of week, month, year, or all.
+        Rangetype should be one of day, week, month, year, all, or
+        a list of tuples consisting of startdate, enddate.
 
         The wrapped matrix should not have the action mod actions,
         as that would take long to load. Instead, get the count,
         as that's all that is needed.
         """
-        _day_key = lambda action: (action.date.date(), action.date.date())
+        _day_key = lambda action: [(action.date.date(), action.date.date())]
         def _week_key(action):
             day_of_action = action.date.date()
             daysdiff = day_of_action.isocalendar()[-1]  # days extra from week start
             startrange = day_of_action - timedelta(days=daysdiff)
             endrange = startrange + timedelta(days=7) # 7 days in a week
-            return (startrange, endrange)
+            return [(startrange, endrange)]
         def _month_key(action):
             # avoid using power calling the year and month multiple times. Assign them to memory
             year, month = action.date.year, action.date.month
@@ -315,11 +316,15 @@ class ModAction(tdb_cassandra.UuidThing):
                 endrange = endrangedate(29) # it's febuary on a leap year
             else:
                 endrange = endrangedate(28) # it's febuary on a non leap year
-            return (startrange, endrange)
+            return [(startrange, endrange)]
         def _year_key(action):
             startrange = date(action.date.year, 1, 1) # jan 1st of that year
             endrange = date(action.date.year, 12, 31) # dec 31st of that year
-            return (startrange, endrange)
+            return [(startrange, endrange)]
+        def _custom_key(action):
+            actiondate = action.date.date()
+            return [(startrange, endrange) for startrange, endrange in rangetype
+                    if startrange <= actiondate <= endrange]
         q = cls.get_actions(srs, mod, action, count=MATRIX_COUNT)
         inner_func = (lambda: 0) if count_only else list
         by_ranges = defaultdict(lambda: defaultdict(inner_func))
@@ -334,17 +339,24 @@ class ModAction(tdb_cassandra.UuidThing):
                 else:
                     by_ranges[(startrange, endrange)][(action.mod_id36, action.action)].append(action)
         else:
-            date_key_calculator = {
-                "day": _day_key,
-                "week": _week_key,
-                "month": _month_key,
-                # "year": _year_key,
-            }[rangetype]
+            if isinstance(rangetype, list):
+                date_key_calculator = _custom_key
+            else:
+                date_key_calculator = {
+                    "day": _day_key,
+                    "week": _week_key,
+                    "month": _month_key,
+                    # "year": _year_key,
+                }[rangetype]
             for action in q:
-                if count_only:
-                    by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)] += 1
-                else:
-                    by_ranges[date_key_calculator(action)][(action.mod_id36, action.action)].append(action)
+                date_keys = date_key_calculator(action)
+                if not date_keys:
+                    continue
+                for date_key in date_keys:
+                    if count_only:
+                        by_ranges[date_key][(action.mod_id36, action.action)] += 1
+                    else:
+                        by_ranges[date_key][(action.mod_id36, action.action)].append(action)
         return by_ranges
 
     @property
