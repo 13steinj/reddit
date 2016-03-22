@@ -25,7 +25,7 @@ import itertools
 from uuid import UUID
 from sys import maxint as MATRIX_COUNT
 import calendar
-from collections import defaultdict
+from r2.lib.modaction_matrix import OrderedDefaultDict, DateRangeCache, defaultdict
 
 from pycassa.system_manager import TIME_UUID_TYPE
 from pylons import request
@@ -296,16 +296,15 @@ class ModAction(tdb_cassandra.UuidThing):
         as that would take long to load. Instead, get the count,
         as that's all that is needed.
         """
-        _day_key = lambda action: [(action.date.date(), action.date.date())]
-        def _week_key(action):
-            day_of_action = action.date.date()
-            daysdiff = day_of_action.isocalendar()[-1]  # days extra from week start
-            startrange = day_of_action - timedelta(days=daysdiff)
+        _day_key = lambda itemdate: [(itemdate, itemdate)]
+        def _week_key(itemdate):
+            daysdiff = itemdate.isocalendar()[-1]  # days extra from week start
+            startrange = itemdate - timedelta(days=daysdiff)
             endrange = startrange + timedelta(days=7) # 7 days in a week
             return [(startrange, endrange)]
-        def _month_key(action):
+        def _month_key(itemdate):
             # avoid using power calling the year and month multiple times. Assign them to memory
-            year, month = action.date.year, action.date.month
+            year, month = itemdate.year, itemdate.month
             startrange = date(year, month, 1) # first day
             endrangedate = lambda endday: date(year, month, endday)
             if month in (1, 3, 5, 7, 8, 10, 12):
@@ -317,39 +316,45 @@ class ModAction(tdb_cassandra.UuidThing):
             else:
                 endrange = endrangedate(28) # it's febuary on a non leap year
             return [(startrange, endrange)]
-        def _year_key(action):
-            startrange = date(action.date.year, 1, 1) # jan 1st of that year
-            endrange = date(action.date.year, 12, 31) # dec 31st of that year
+        def _year_key(itemdate):
+            startrange = date(itemdate.year, 1, 1) # jan 1st of that year
+            endrange = date(itemdate.year, 12, 31) # dec 31st of that year
             return [(startrange, endrange)]
-        def _custom_key(action):
-            actiondate = action.date.date()
+        def _custom_key(itemdate):
+            actiondate = itemdate
             return [(startrange, endrange) for startrange, endrange in rangetype
                     if startrange <= actiondate <= endrange]
         q = cls.get_actions(srs, mod, action, count=MATRIX_COUNT)
         inner_func = (lambda: 0) if count_only else list
-        by_ranges = defaultdict(lambda: defaultdict(inner_func))
+        by_ranges = OrderedDefaultDict(lambda: defaultdict(inner_func))
         if rangetype == "all":
-            listed_q = list(q)
-            startrange = listed_q[0].date.date()
-            endrange = listed_q[-1].date.date()
-            by_mod_and_action = defaultdict(list)
-            for action in listed_q:
+            endrange = None
+            current_action = None
+            by_grouping = defaultdict(inner_func)
+            for action in q:
+                if not endrange:
+                    endrange = action.date.date()
+                current_action = action
                 if count_only:
-                    by_ranges[(startrange, endrange)][(action.mod_id36, action.action)] += 1
+                    by_grouping[(action.mod_id36, action.action)] += 1
                 else:
-                    by_ranges[(startrange, endrange)][(action.mod_id36, action.action)].append(action)
+                    by_grouping[(action.mod_id36, action.action)].append(action)
+            if current_action:
+                by_ranges[(current_action.date.date(), endrange)] = by_grouping
+
         else:
             if isinstance(rangetype, list):
                 date_key_calculator = _custom_key
             else:
-                date_key_calculator = {
+                calculator_key = {
                     "day": _day_key,
                     "week": _week_key,
                     "month": _month_key,
                     # "year": _year_key,
                 }[rangetype]
+                date_key_calculator = DateRangeCache(calculator_key).get
             for action in q:
-                date_keys = date_key_calculator(action)
+                date_keys = date_key_calculator(action.date.date())
                 if not date_keys:
                     continue
                 for date_key in date_keys:
