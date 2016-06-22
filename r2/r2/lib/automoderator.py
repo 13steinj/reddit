@@ -574,6 +574,11 @@ class RuleTarget(object):
             valid_targets=Account,
             component_type="check",
         ),
+        "is_banned": RuleComponent(
+            valid_types=bool,
+            valid_targets=Account,
+            component_type="check",
+        ),
         "is_moderator": RuleComponent(
             valid_types=bool,
             valid_targets=Account,
@@ -846,6 +851,11 @@ class RuleTarget(object):
             # on a submission's author by accident
             is_submitter = data.get("is_submitter", True)
             if self.is_submitter != is_submitter:
+                return False
+
+        if self.is_banned is not None:
+            is_banned = bool(data["subreddit"].is_banned(item))
+            if is_banned != self.is_banned:
                 return False
 
         if self.is_moderator is not None:
