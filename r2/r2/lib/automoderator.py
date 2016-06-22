@@ -655,6 +655,22 @@ class RuleTarget(object):
 
                 setattr(self, key, None)
 
+        # ugly hack to make is_banned mutually inclusive with is_edited
+        # and mutually exclusive with actions that notify the author
+        if getattr(self, "is_banned", False):
+            is_banned_okay = True
+            if not getattr(self, "is_edited", False):
+                raise AutoModeratorRuleTypeError(
+                    "is_banned and is_edited are mutually inclusive",
+                    self.parent.yaml,
+                )
+            if any(action_type in self.parent.actions for action in ("comment", "message", "message_subject")):
+                raise AutoModeratorRuleTypeError(
+                    "is_banned and comment, message, and "
+                    "message_subject are mutually exclusive",
+                    self.parent.yaml,
+                )
+
         # special handling for set_flair
         if self.set_flair is not None:
             if isinstance(self.set_flair, basestring):
@@ -1238,7 +1254,7 @@ class Rule(object):
                         self.yaml,
                     )
                 setattr(self, key, value)
-
+                
                 if component.component_type == "check":
                     self.checks.add(key)
                 elif component.component_type == "action":
