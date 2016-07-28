@@ -22,6 +22,7 @@
 import csv
 from collections import defaultdict
 import hashlib
+from PIL.PngImagePlugin import PngImageFile
 import re
 import urllib
 import urllib2
@@ -50,6 +51,7 @@ from r2.lib import amqp
 from r2.lib import recommender
 from r2.lib import hooks
 from r2.lib.ratelimit import SimpleRateLimit
+from r2.lib.contrib.IcoImagePlugin import IcoImageFile
 
 from r2.lib.utils import (
     blockquote_text,
@@ -2562,7 +2564,7 @@ class ApiController(RedditController):
               form_id = VLength('formid', max_length = 100,
                                 docs={"formid": "(optional) can be ignored"}),
               upload_type = VOneOf('upload_type',
-                                   ('img', 'header', 'icon', 'banner')),
+                                   ('img', 'header', 'icon', 'banner', 'faveicon')),
               header = VInt('header', max=1, min=0))
     @api_doc(api_section.subreddits, uses_site=True)
     def POST_upload_sr_img(self, file, header, name, form_id, img_type,
@@ -2586,7 +2588,7 @@ class ApiController(RedditController):
         * If the `header` field has value `1`, then `upload_type` is `header`.
 
         The `img_type` field specifies whether to store the uploaded image as a
-        PNG or JPEG.
+        PNG or JPEG.  # I'm not updating these docs for this lol
 
         Subreddits have a limited number of images that can be in use at any
         given time. If no image with the specified name already exists, one of
@@ -2626,11 +2628,26 @@ class ApiController(RedditController):
                 errors['IMAGE_ERROR'] = _("too many images (you only get %d)") % g.max_sr_images
 
         try:
-            size = str_to_image(file).size
+            PIL_obj = str_to_image(file)
+            size = PIL_obj.sizes if isinstance(PIL_obj, IcoImageFile) else PIL_obj.size
+.size
         except (IOError, TypeError):
             errors['IMAGE_ERROR'] = _('Invalid image or general image error')
         else:
-            if upload_type == 'icon':
+            if upload_type == 'faveicon':
+                if isinstance(PIL_obj, IcoImageFile):
+                    img_type = 'ico'
+                    if any(k != v for k, v in size):
+                        errors['IMAGE_ERROR'] = _(
+                            'faveicon height and width must be equal')
+                elif isinstance(PIL_obj, PngImageFile):
+                    if size[0] != size[1]:
+                        errors['IMAGE_ERROR'] = _(
+                            'faveicon height and width must be equal')
+                else:
+                    errors['IMAGE_ERROR'] = _(
+                        'faveicon format must be ico or png')
+            elif upload_type == 'icon':
                 if size != Subreddit.ICON_EXACT_SIZE:
                     errors['IMAGE_ERROR'] = (
                         _('must be %dx%d pixels') % Subreddit.ICON_EXACT_SIZE)
@@ -2675,6 +2692,11 @@ class ApiController(RedditController):
                 c.site.icon_size = size
                 c.site._commit()
                 kw = dict(details='upload_image_icon')
+            elif upload_type == 'faveicon':
+                c.site.faveicon_img = new_url
+                c.site.faveicon_size = c.site.FAVEICON_SIZES  # should be empty if no faveicon
+                c.site._commit()
+                kw = dict(details='upload_image_faveicon')
             elif upload_type == 'banner':
                 c.site.banner_img = new_url
                 c.site.banner_size = size
