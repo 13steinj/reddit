@@ -1064,6 +1064,22 @@ class VModhash(Validator):
             '%s / X-Modhash header' % self.param: 'a [modhash](#modhashes)',
         }
 
+class VValidReportHash(Validator):
+    def run(self, srname, reporthash):
+        # VValidReportHash must always be called
+        # with param=['srnameparam', 'hashparam']
+        sr = VSrByName.run(self, srname)
+        if isinstance(sr, Subreddit):
+            try:
+                q = SubredditReportHashesByAccountId36._cf.get(sr._id36)
+            except tdb_cassandra.NotFoundException:
+                return abort(403) # self.set_error(errors.INVALID_REPORTHASH)
+            else:
+                if reporthash not in q.values():
+                    return abort(403) # self.set_error(errors.INVALID_REPORTHASH)
+                return reporthash
+    def param_docs(self):
+        return {self.param[1]: "an existing reporthash"}
 
 class VModhashIfLoggedIn(Validator):
     handles_csrf = True

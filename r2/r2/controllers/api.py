@@ -1659,6 +1659,7 @@ class ApiController(RedditController):
         VModhash(),
         sr=VSRByName('srname'),
     )
+    @api_doc(api_section.account)
     def POST_regenerate_reporthash(self, form, jquery, sr):
         """Regnerate and return the user-subreddit reporthash.
 
@@ -1670,13 +1671,53 @@ class ApiController(RedditController):
         """
         newhash = c.user.regenerate_reporthash(sr)
         return self.api_wrapper({'newhash': newhash})
-    
+
+    @require_oauth2_scope("modcontributors")
+    @validatedForm(
+        VUser(),
+        VModhash(),
+        sr=VSRByName('srname'),
+        reporthash=VValidReportHash(param=['srname', 'reporthash']),
+    )
+    @api_doc(api_section.moderation)
+    def POST_block_reporthash(self, form, jquery, sr, reporthash):
+        """Block a report hash from a subreddit.
+
+        See also: [/api/report](#POST_api_report).
+        See also: [/api/regenerate_reporthash](#POST_regenerate_reporthash).
+        See also: [/api/friend](#POST_api_friend).
+        See also: [/api/unblock_reporthash](#POST_unblock_reporthash).
+
+        """
+        if sr.is_blocked_reporthash(reporthash):
+            abort(403)  # c.errors.add; form.has_error later
+        sr.block_from_reporting(reporthash)
+
+    @require_oauth2_scope("modcontributors")
+    @validatedForm(
+        VUser(),
+        VModhash(),
+        sr=VSRByName('srname'),
+        reporthash=VValidReportHash(param=['srname', 'reporthash']),
+    )
+    @api_doc(api_section.moderation)
+    def POST_unblock_reporthash(self, form, jquery, sr, reporthash):
+        """Unblock a report hash from a subreddit.
+
+        See also: [/api/report](#POST_api_report).
+        See also: [/api/regenerate_reporthash](#POST_regenerate_reporthash).
+        See also: [/api/friend](#POST_api_friend).
+        See also: [/api/block_reporthash](#POST_block_reporthash).
+
+        """
+        if sr.is_blocked_reporthash(reporthash):
+            sr.unblock_from_reporting(reporthash)
 
     @require_oauth2_scope("report")
     @validatedForm(
         VUser(),
         VModhash(),
-        VReportHashByThingName('thing_id'),
+        VReportHashByThingName('thing_id'), # If the user didn't have one, they do now.
         thing=VByName('thing_id'),
         reason=VLength('reason', max_length=100, empty_error=None),
         site_reason=VLength('site_reason', max_length=100, empty_error=None),
