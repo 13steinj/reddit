@@ -21,10 +21,20 @@
 ###############################################################################
 
 from collections import Counter
+from itertools import groupby
 
 from r2.lib.db.thing import Relation, MultiRelation
 from r2.lib.utils import tup
-from r2.models import Link, Comment, Message, Subreddit, Account
+from r2.lib.memoize import memoize
+from r2.models import (
+    Link,
+    Comment,
+    Message,
+    Subreddit,
+    Account,
+    SubredditReportHashesByAccount
+)
+from datetime import datetime
 
 from pylons import tmpl_context as c
 from pylons import app_globals as g
@@ -170,10 +180,30 @@ class Report(MultiRelation('report', *REPORT_RELS)):
                             mods[report._thing1_id].name)
                             for report in mod_reports]
 
-            # user reports return as tuples with (reason, count)
-            user_reports = Counter([getattr(report, "reason", None)
-                                    for report in user_reports])
-            user_reports = user_reports.most_common(max_user_reasons)
+            # user reports return as tuples with (reason, count, [hashes])
+            sr = Subreddit._byID(wrapped.sr_id)
+            users_by_reason = {reason: [report._thing1_id for report in group]
+                               for reason, group in groupby(user_reports,
+                               lambda report: getattr(report, "reason", None))}
+            # we only care about the max_user_reasons ordered report reasons
+            counted_reasons = Counter(users_by_reason.keys()).most_common(
+                max_user_reasons)  # (reasons, how many) of max_user_reasons
+
+            # get the user hashes we have to look up out of max_user_reasons
+            lookup_ids = [user for grouping in
+                          [users_by_reason[reason] for
+                           reason, count in counted_reasons]
+                          for user in grouping]
+            users = Account._byID(lookup_ids, data=True, return_dict=True)
+            report_hashes = SubredditReportHashesByAccount.get_or_make_hash(
+                sr, users.values())
+            report_hashes_by_user_id = {user._id: report_hash for
+                                        (subreddit, user), report_hash
+                                        in report_hashes.iteritems()}
+            user_reports = [(reason, count,
+                             map(lambda _id: report_hashes_by_user_id[_id],
+                                 users_by_reason[reason]))
+                            for reason, count in counted_reasons]
 
             return mod_reports, user_reports
         else:
