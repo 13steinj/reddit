@@ -914,7 +914,7 @@ class DenormalizedRelation(object):
         or value_for to get additional information.
 
         """
-        thing2s = tup(thing2s)
+        thing2s, ret_is_single = tup(thing2s, True)
         values = {thing2._id36 : cls.value_for(thing1, thing2, **kw)
                   for thing2 in thing2s}
         cls._cf.insert(thing1._id36, values, ttl=cls._ttl)
@@ -927,9 +927,9 @@ class DenormalizedRelation(object):
             LastModified.touch(thing1._fullname, cls._last_modified_name)
 
         if return_values:
-            # emulate a dict that would be returned by fast_query
-            # if requested cause some value_for methods are slow
-            # and said values may be used right away
+            # emulate the response of cls.fast_query
+            if ret_is_single:
+                return values.values()[0]
             thing2_map = {thing2._id36: thing2 for thing2 in thing2s}
             return {(thing1, thing2_map[thing2_id]): value
                     for thing2_id, value in values.iteritems()}

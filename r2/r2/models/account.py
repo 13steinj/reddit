@@ -53,7 +53,7 @@ from r2.models.trylater import TryLater
 
 
 trylater_hooks = hooks.HookRegistrar()
-COOKIE_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%S'
+COOKIE_TIMESTAMP_FORMAT = REPORTHASH_TIMESTAMP_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
 
 class AccountExists(Exception):
@@ -177,11 +177,11 @@ class Account(Thing):
         return not self.__eq__(other)
 
     def get_or_make_reporthash(self, sr):
-        return AccountReportHashesBySubreddit.get_or_make_hash(self, sr)
+        return SubredditReportHashesByAccount.get_or_make_hash(sr, self)
 
     def regenerate_reporthash(self, sr):
         oldhash = self.get_or_make_reporthash(sr)
-        newhash = AccountReportHashesBySubreddit.regenerate_hash(self, sr)
+        newhash = SubredditReportHashesByAccount.regenerate_hash(sr, self)
         sr.update_reporthash_blocks(oldhash, newhash)
         return newhash
 
@@ -1122,7 +1122,7 @@ class SubredditParticipationByAccount(tdb_cassandra.DenormalizedRelation):
     _views = []
     _extra_schema_creation_args = {
         "key_validation_class": tdb_cassandra.ASCII_TYPE,
-        "default_validation_class": tdb_cassandra.DATE_TYPE,
+        "default_validation_class": tdb_cassandra.ASCII_TYPE,
     }
 
     @classmethod
@@ -1169,46 +1169,59 @@ class QuarantinedSubredditOptInsByAccount(tdb_cassandra.DenormalizedRelation):
             return False
         return (user, subreddit) in r
 
-class AccountReportHashesBySubreddit(tdb_cassandra.DenormalizedRelation):
+
+class SubredditReportHashesByAccount(tdb_cassandra.DenormalizedRelation):
     _use_db = True
     _write_last_modified = False
     _views = []
     _extra_schema_creation_args = {
         "key_validation_class": tdb_cassandra.ASCII_TYPE,
-        "default_validation_class": tdb_cassandra.DATE_TYPE,
+        "default_validation_class": tdb_cassandra.ASCII_TYPE,
     }
 
     @classmethod
-    def value_for(cls, user, subreddit):
-        # NOTE: NEVER USE THIS METHOD DIRECTLY TO MAKE REPORT HASHES
-        # THE RESULT WOULD BE INVALID AND POISONED BY TIME ITSELF
-        # USE get_or_make_hash OR regenerate_hash INSTEAD!
-        timesalt = time.time()
+    def value_for(cls, subreddit, user):
+        # NOTE: This function is not to be used directly
+        # because the hash generated uses the time from
+        # when this function is called.
+        timestr = time.strftime(REPORTHASH_TIMESTAMP_FORMAT)
         reporthash = hooks.get_hook(
             "reporthash.generate"
         ).call_until_return(
-            user=user,
             subreddit=subreddit,
-            timesalt=timesalt
+            user=user,
+            timestr=timestr
         )
         if reporthash is not None:
             return reporthash
         # no plugin for report hashes, just use their id's and the time
-        return "%s_%s_%s" % (user._id36, subreddit._id36, timesalt)
+        return ",".join([subreddit._id36, user._id36, timestr])
 
     @classmethod
-    def get_or_make_hash(cls, user, subreddit):
+    def get_or_make_hash(cls, subreddit, users):
         try:
-            r = cls.fast_query(user, [subreddit])
+            r = cls.fast_query(subreddit, users)
         except tdb_cassandra.NotFound:
             r = {}
-        if (user, subreddit) in r:
-            return r[(user, subreddit)]
-        r = cls.create(user, subreddit, return_values=True)
-        return r[(user, subreddit)]
+        if r:
+            return r
+        has = {}
+        to_make = users
+        if not tup(users, True)[1]:
+            # called with more than one, calculate the diff
+            to_make = []
+            for user in users:
+                try:
+                    has[(subreddit, user)] = cls.fast_query(subreddit, user)
+                except tdb_cassandra.NotFound:
+                    to_make.append(user)
+        r = cls.create(subreddit, to_make, return_values=True)
+        if has:
+            r.update(has)
+        return r
 
     @classmethod
-    def regenerate_hash(cls, user, subreddit):
+    def regenerate_hash(cls, subreddit, users):
         # returns the regenerated hash
-        r = cls.create(user, subreddit, return_values=True)
-        return r[(user, subreddit)]
+        r = cls.create(subreddit, users, return_values=True)
+        return newhash

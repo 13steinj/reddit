@@ -1310,15 +1310,15 @@ class Subreddit(Thing, Printable, BaseSite):
         return retval if retval else None
 
     def is_blocked_from_reporting(self, user):
-        retval = self.is_blocked_reporthash(user.get_or_make_reporthash())
+        retval = self.is_blocked_reporthash(user.get_or_make_reporthash(self))
         # for consistency with is_banned, is_muted, etc.
         return {user.name: retval.values()[0]} if retval else None
 
-    def block_from_reporting(self, user_or_hash, hours=0):
-        return BlockedReportHashesBySubreddit.block(user_or_hash, hours)
+    def block_from_reporting(self, hash, hours=0):
+        return BlockedReportHashesBySubreddit.block(hash, hours)
 
-    def unblock_from_reporting(self, userorhash):
-        return BlockedReportHashesBySubreddit.unblock(user_or_hash)
+    def unblock_from_reporting(self, hash):
+        return BlockedReportHashesBySubreddit.unblock(hash)
 
     def update_reporthash_blocks(self, oldhash, newhash):
         was_blocked = self.is_blocked_reporthash(oldhash)
@@ -2993,12 +2993,10 @@ def unmute_hook(data):
 
 class BlockedReportHashesBySubreddit(object):
     @classmethod
-    def block(cls, sr, user_or_hash, hours=0):
+    def block(cls, sr, hash, hours=0):
         from r2.models import ModAction
         NUM_HOURS = hours or 48
 
-        # admins can block by users themselves for ease
-        hash = user_or_hash.get_or_make_reporthash(sr) if isinstance(user_or_hash, Account) else user_or_hash
         info = {
             'sr': sr._id36,
             'hash': hash
@@ -3015,7 +3013,6 @@ class BlockedReportHashesBySubreddit(object):
 
     @classmethod
     def cancel_colkey(cls, hash):
-        # for consistency
         return hash
 
     @classmethod
