@@ -11094,13 +11094,16 @@ ul.report-reasons {
     border: thin solid black;
     display: none;
 
+    .report-hashes {display:none}
+
     li {
-        &.report-reason {
+        &.report-reason, &.report-hash {
             padding: 1px 10px;
-            display: block;
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        &.report-reason {display: block}
 
         &.report-reason-title {
             padding: 1px 10px;

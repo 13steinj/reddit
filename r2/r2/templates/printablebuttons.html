@@ -306,14 +306,19 @@
   %endif
 
   %if thing.user_reports:
-    <li class="report-reason-title">${_("user reports:")}</li>
-    %for reason, count in thing.user_reports:
+    <li class="report-reason-title">${_("user reports (click to view hashes):")}</li>
+    %for reason, count, hashes in thing.user_reports:
       <li class="report-reason" title="${reason}">${count}:
       %if reason:
         ${reason}
       %else:
         ${_("<no reason>")}
       %endif
+        <ul class="report-hashes">
+          %for hash_ in hashes:
+            <li class="report-hash" title="${hash_}">&#9679; ${hash_}</li>
+          %endfor
+        </ul>
       </li>
     %endfor
   %endif

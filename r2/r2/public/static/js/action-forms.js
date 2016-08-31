@@ -119,6 +119,40 @@ r.report = {
       '.reported-stamp.has-reasons',
       this.toggleReasons.bind(this)
     );
+
+    $('div.content').on(
+      'click',
+      '.report-reason',
+      this.toggleReasonHashes.bind(this)
+    );
+
+    $('div.content').on(
+      'click',
+      '.report-reason-title',
+      this.toggleAllHashes.bind(this)
+    );
+  },
+
+  toggleAllHashes: function(e) {
+    if (r.access.isLinkRestricted(e.target)) {
+      return;
+    }
+
+    let $el = $(event.target).parent();
+
+    if ($el.find('.report-hashes:hidden').length) {
+      return $el.find('.report-hashes').show();
+    } else {
+      return $el.find('.report-hashes').hide();
+    }
+  },
+
+  toggleReasonHashes: function(e) {
+    if (r.access.isLinkRestricted(e.target)) {
+      return;
+    }
+
+    $(e.target).children('.report-hashes').toggle();
   },
 
   toggleReasons: function(e) {
