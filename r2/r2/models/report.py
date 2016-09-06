@@ -182,9 +182,10 @@ class Report(MultiRelation('report', *REPORT_RELS)):
 
             # user reports return as tuples with (reason, count, [hashes])
             sr = Subreddit._byID(wrapped.sr_id)
+            grouper = lambda report: getattr(report, "reason", None)
             users_by_reason = {reason: [report._thing1_id for report in group]
-                               for reason, group in groupby(user_reports,
-                               lambda report: getattr(report, "reason", None))}
+                               for reason, group in groupby(sorted(
+                               user_reports, key=grouper), grouper)}
             # we only care about the max_user_reasons ordered report reasons
             counted_reasons = Counter(users_by_reason.keys()).most_common(
                 max_user_reasons)  # (reasons, how many) of max_user_reasons
@@ -197,11 +198,13 @@ class Report(MultiRelation('report', *REPORT_RELS)):
             users = Account._byID(lookup_ids, data=True, return_dict=True)
             report_hashes = SubredditReportHashesByAccount.get_or_make_hash(
                 sr, users.values())
+            blocked_report_hashes = sr.get_blocked_reporthashes(report_hashes.values())
             report_hashes_by_user_id = {user._id: report_hash for
                                         (subreddit, user), report_hash
                                         in report_hashes.iteritems()}
             user_reports = [(reason, count,
-                             map(lambda _id: report_hashes_by_user_id[_id],
+                             map(lambda _id: (report_hashes_by_user_id[_id],
+                                 report_hashes_by_user_id[_id] in blocked_report_hashes),
                                  users_by_reason[reason]))
                             for reason, count in counted_reasons]
 
