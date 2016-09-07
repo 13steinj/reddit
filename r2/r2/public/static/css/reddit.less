@@ -11096,14 +11096,28 @@ ul.report-reasons {
 
     .report-hashes {display:none}
 
+    .block-reporthash.toggle {
+        display: inline-block;
+        width: 50px;
+
+        .option.active {
+            display: block;
+            text-align: center;
+        }
+    }
+
     li {
         &.report-reason, &.report-hash {
             padding: 1px 10px;
+            display: block;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        &.report-reason {display: block}
+        p.user-report, &.user-reports-title {
+            cursor: pointer;
+            &:hover {text-decoration: underline}
+        }
 
         &.report-reason-title {
             padding: 1px 10px;

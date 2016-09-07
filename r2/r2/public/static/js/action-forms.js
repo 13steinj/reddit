@@ -122,13 +122,13 @@ r.report = {
 
     $('div.content').on(
       'click',
-      '.report-reason',
+      '.report-reason .user-report',
       this.toggleReasonHashes.bind(this)
     );
 
     $('div.content').on(
       'click',
-      '.report-reason-title',
+      '.user-reports-title',
       this.toggleAllHashes.bind(this)
     );
   },
@@ -138,7 +138,7 @@ r.report = {
       return;
     }
 
-    let $el = $(event.target).parent();
+    var $el = $(event.target).parent();
 
     if ($el.find('.report-hashes:hidden').length) {
       return $el.find('.report-hashes').show();
@@ -152,7 +152,7 @@ r.report = {
       return;
     }
 
-    $(e.target).children('.report-hashes').toggle();
+    $(e.target).parent().children('.report-hashes').toggle();
   },
 
   toggleReasons: function(e) {

@@ -293,30 +293,38 @@
 <%def name="report_reasons()">
 <ul class="report-reasons rounded">
   %if thing.mod_reports:
-    <li class="report-reason-title">${_("moderator reports:")}</li>
+    <li class="report-reason-title mod-reports-title">${_("moderator reports:")}</li>
     %for reason, user in thing.mod_reports:
-      <li class="report-reason mod-report" title="${reason}">${user}:
+      <li class="report-reason" title="${reason}"><p class="mod-report">${user}:
       %if reason:
         ${reason}
       %else:
         ${_("<no reason>")}
       %endif
-      </li>
+      </p></li>
     %endfor
   %endif
 
   %if thing.user_reports:
-    <li class="report-reason-title">${_("user reports (click to view hashes):")}</li>
-    %for reason, count, hashes in thing.user_reports:
-      <li class="report-reason" title="${reason}">${count}:
+    <li class="report-reason-title user-reports-title">${_("user reports (click to view hashes):")}</li>
+    %for (reason, count, hashes) in thing.user_reports:
+      <li class="report-reason" title="${reason}">
+        <p class="user-report">${count}:
       %if reason:
         ${reason}
       %else:
         ${_("<no reason>")}
       %endif
+        </p>
         <ul class="report-hashes">
-          %for hash_ in hashes:
-            <li class="report-hash" title="${hash_}">&#9679; ${hash_}</li>
+          %for hash_, hash_is_blocked in hashes:
+            <li class="report-hash" title="${hash_}">
+              ${toggle_button("block-reporthash", _("block"), _("unblock"),
+                              "reporthash_action('%s', '%s', true)" % (hash_, thing.thing.subreddit.name),
+                              "reporthash_action('%s', '%s', false)" % (hash_, thing.thing.subreddit.name),
+                              reverse=hash_is_blocked, login_required=True)}
+              ${hash_}
+            </li>
           %endfor
         </ul>
       </li>

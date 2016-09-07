@@ -316,6 +316,16 @@ function unsubscribe(reddit_name) {
     };
 };
 
+function reporthash_action(reporthash, reddit_name, block) {
+    return function(current_el) {
+        var request_method = block ? "block_reporthash" : "unblock_reporthash";
+        var hash_el = $(current_el).parent().parent();
+        $.request(request_method, {reporthash: reporthash, r:reddit_name});
+        /* toggle all the other block buttons by the same reporter */
+        $('.report-hash[title="' + reporthash + '"]').not(hash_el).find('a').toggleClass('active');
+    };
+};
+
 function quarantine_optout(subreddit_name) {
     return function() {
         if (r.config.logged) {

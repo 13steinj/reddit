@@ -1673,14 +1673,13 @@ class ApiController(RedditController):
         return self.api_wrapper({'newhash': newhash})
 
     @require_oauth2_scope("modcontributors")
-    @validatedForm(
-        VUser(),
+    @noresponse(
+        VSrModerator(perms=('access', 'posts')),
         VModhash(),
-        sr=VSRByName('srname'),
-        reporthash=VValidReportHash(param=['srname', 'reporthash']),
+        reporthash=VValidReportHash('reporthash'),
     )
     @api_doc(api_section.moderation)
-    def POST_block_reporthash(self, form, jquery, sr, reporthash):
+    def POST_block_reporthash(self, reporthash):
         """Block a report hash from a subreddit.
 
         See also: [/api/report](#POST_api_report).
@@ -1689,19 +1688,20 @@ class ApiController(RedditController):
         See also: [/api/unblock_reporthash](#POST_unblock_reporthash).
 
         """
-        if sr.is_blocked_reporthash(reporthash):
-            abort(403)  # c.errors.add; form.has_error later
-        sr.block_from_reporting(reporthash)
+        if isinstance(c.site, FakeSubreddit):
+            abort(403, 'forbidden')
+        if c.site.is_blocked_reporthash(reporthash):
+            abort(403, 'is already blocked')
+        c.site.block_from_reporting(reporthash)
 
     @require_oauth2_scope("modcontributors")
-    @validatedForm(
-        VUser(),
+    @noresponse(
+        VSrModerator(perms=('access', 'posts')),
         VModhash(),
-        sr=VSRByName('srname'),
-        reporthash=VValidReportHash(param=['srname', 'reporthash']),
+        reporthash=VValidReportHash('reporthash'),
     )
     @api_doc(api_section.moderation)
-    def POST_unblock_reporthash(self, form, jquery, sr, reporthash):
+    def POST_unblock_reporthash(self, reporthash):
         """Unblock a report hash from a subreddit.
 
         See also: [/api/report](#POST_api_report).
@@ -1710,8 +1710,11 @@ class ApiController(RedditController):
         See also: [/api/block_reporthash](#POST_block_reporthash).
 
         """
-        if sr.is_blocked_reporthash(reporthash):
-            sr.unblock_from_reporting(reporthash)
+        if isinstance(c.site, FakeSubreddit):
+            abort(403, 'forbidden')
+        if not c.site.is_blocked_reporthash(reporthash):
+            abort(403, 'isn\'t already blocked')
+        c.site.unblock_from_reporting(reporthash)
 
     @require_oauth2_scope("report")
     @validatedForm(
