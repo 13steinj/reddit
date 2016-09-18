@@ -1304,8 +1304,8 @@ class Subreddit(Thing, Printable, BaseSite):
     def get_blocked_reporthashes(self, hashes=None):
         return BlockedReportHashesBySubreddit.search(self, hashes)
 
-    def is_blocked_reporthash(self, hash):
-        retval = self.get_blocked_reporthashes([hash])
+    def is_blocked_reporthash(self, hash_):
+        retval = self.get_blocked_reporthashes([hash_])
         # for consistency with is_banned, is_muted, etc.
         return retval if retval else None
 
@@ -1314,11 +1314,11 @@ class Subreddit(Thing, Printable, BaseSite):
         # for consistency with is_banned, is_muted, etc.
         return {user.name: retval.values()[0]} if retval else None
 
-    def block_from_reporting(self, hash, hours=0):
-        return BlockedReportHashesBySubreddit.block(hash, hours)
+    def block_from_reporting(self, hash_, hours=0):
+        return BlockedReportHashesBySubreddit.block(self, hash_, hours)
 
-    def unblock_from_reporting(self, hash):
-        return BlockedReportHashesBySubreddit.unblock(hash)
+    def unblock_from_reporting(self, hash_):
+        return BlockedReportHashesBySubreddit.unblock(self, hash_)
 
     def update_reporthash_blocks(self, oldhash, newhash):
         was_blocked = self.is_blocked_reporthash(oldhash)
