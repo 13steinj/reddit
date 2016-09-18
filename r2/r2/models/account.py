@@ -1122,7 +1122,7 @@ class SubredditParticipationByAccount(tdb_cassandra.DenormalizedRelation):
     _views = []
     _extra_schema_creation_args = {
         "key_validation_class": tdb_cassandra.ASCII_TYPE,
-        "default_validation_class": tdb_cassandra.ASCII_TYPE,
+        "default_validation_class": tdb_cassandra.DATE_TYPE,
     }
 
     @classmethod
@@ -1173,6 +1173,8 @@ class QuarantinedSubredditOptInsByAccount(tdb_cassandra.DenormalizedRelation):
 class SubredditReportHashesByAccount(tdb_cassandra.DenormalizedRelation):
     _use_db = True
     _write_last_modified = False
+    _read_consistency_level = tdb_cassandra.CL.QUORUM
+    _write_consistency_level = tdb_cassandra.CL.QUORUM
     _views = []
     _extra_schema_creation_args = {
         "key_validation_class": tdb_cassandra.ASCII_TYPE,
@@ -1203,7 +1205,7 @@ class SubredditReportHashesByAccount(tdb_cassandra.DenormalizedRelation):
             r = cls.fast_query(subreddit, users)
         except tdb_cassandra.NotFound:
             r = {}
-        if r:
+        else:
             return r
         has = {}
         to_make = users
