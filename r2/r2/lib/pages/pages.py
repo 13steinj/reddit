@@ -95,6 +95,7 @@ from r2.models.token import OAuth2Client, OAuth2AccessToken
 from r2.models import traffic
 from r2.models import ModAction
 from r2.models import Thing
+from r2.models import convert_uuid_to_time
 from r2.models.wiki import WikiPage, ImagesByWikiPage
 from r2.lib.db import tdb_cassandra, queries
 from r2.config.extensions import is_api
@@ -590,6 +591,11 @@ class Reddit(Templated):
                     "muted",
                     css_class="reddit-mute access-required",
                     data=data_attrs('muted')))
+            if is_moderator_with_perms('access', 'posts'):
+                buttons.append(NamedButton(
+                    "report_blocked",
+                    css_class="reddit-report_block access-required",
+                    data=data_attrs("report_blocked")))
             if is_moderator_with_perms('flair'):
                 buttons.append(NamedButton(
                     "flair",
@@ -4028,6 +4034,36 @@ class MutedTableItem(RelTableItem):
     @property
     def executed_message(self):
         return _("muted")
+
+
+class ReportBlockedWrapper(object):
+    __slots__ = ('_rel', '_date')
+    def __init__(self, rel, made):
+        self._rel = rel
+        self._date = made
+
+
+class ReportBlockedTableItem(RelTableItem):
+    type = 'report_blocked'
+    cells = ('hash_', 'age', 'remove')
+
+    def __init__(self, rel, **kw):
+        self.hash_, self._id = [(k, v) for k, v in rel.iteritems()][0]
+        time = datetime.datetime.fromtimestamp(convert_uuid_to_time(self._id),
+                                               g.tz)
+        if time:
+            now = datetime.datetime.now(g.tz)
+            delay = time - now
+            made = now - (datetime.timedelta(hours=48) - delay)
+            self.rel = ReportBlockedWrapper(rel, made)
+            self.blocked = max(int(delay.total_seconds()), 0)
+
+        UserTableItem.__init__(self, c.site, **kw)
+
+
+    @property
+    def executed_message(self):
+        return _("report hash blocked")
 
 
 class WikiBannedTableItem(BannedTableItem):

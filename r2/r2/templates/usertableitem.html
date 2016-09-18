@@ -35,11 +35,15 @@
 </tr>
 
 <%def name="usertablecell(cell_type)">
-  %if cell_type == "user":
+  %if cell_type in ("user", "hash_"):
       <span class="user">
-         ${plain_link(thing.user.name, "/user/%s/" % thing.user.name,
-                      _sr_path=False)}
-         &nbsp;(<b>${display_link_karma(thing.user.link_karma)}</b>)
+         %if cell_type == "user":
+             ${plain_link(thing.user.name, "/user/%s/" % thing.user.name,
+                          _sr_path=False)}
+             &nbsp;(<b>${display_link_karma(thing.user.link_karma)}</b>)
+         %else:
+             ${thing.hash_}
+         %endif
       </span>
       &nbsp;
   %elif c.user_is_loggedin and cell_type == "sendmessage" and c.user != thing.user:

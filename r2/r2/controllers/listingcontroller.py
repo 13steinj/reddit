@@ -38,6 +38,7 @@ from r2.lib.menus import ControversyTimeMenu, ProfileOverviewTimeMenu, menu, Que
 from r2.lib.rising import get_rising, normalized_rising
 from r2.lib.wrapped import Wrapped
 from r2.lib.normalized_hot import normalized_hot
+from r2.lib.db.tdb_cassandra import ColumnQuery
 from r2.lib.db.thing import Query, Merge, Relations
 from r2.lib.db import queries
 from r2.lib.strings import Score
@@ -1765,22 +1766,17 @@ class UserListListingController(ListingController):
 
     @property
     def builder_wrapper(self):
-        if self.where == 'banned':
-            cls = BannedTableItem
-        elif self.where == 'muted':
-            cls = MutedTableItem
-        elif self.where == 'moderators':
-            return self.moderator_wrap
-        elif self.where == 'wikibanned':
-            cls = WikiBannedTableItem
-        elif self.where == 'contributors':
-            cls = ContributorTableItem
-        elif self.where == 'wikicontributors':
-            cls = WikiMayContributeTableItem
-        elif self.where == 'friends':
-            cls = FriendTableItem
-        elif self.where == 'blocked':
-            cls = EnemyTableItem
+        cls = {
+            'banned'          : BannedTableItem,
+            'muted'           : MutedTableItem,
+            'moderators'      : self.moderator_wrap,
+            'wikibanned'      : WikiBannedTableItem,
+            'contributors'    : ContributorTableItem,
+            'wikicontributors': WikiMayContributeTableItem,
+            'friends'         : FriendTableItem,
+            'blocked'         : EnemyTableItem,
+            'report_blocked'  : ReportBlockedTableItem,
+        }[self.where]
         return lambda rel : cls(rel, editable=self.editable)
 
     def title(self):
@@ -1817,6 +1813,11 @@ class UserListListingController(ListingController):
              }
 
     def query(self):
+        if self.where == "report_blocked":
+            return ColumnQuery(
+                TryLaterBySubject,
+                [BlockedReportHashesBySubreddit.cancel_rowkey(c.site)]
+            )
         rel = self.rel()
         if self.where in ["friends", "blocked"]:
             thing1_id = c.user._id
@@ -1966,6 +1967,14 @@ class UserListListingController(ListingController):
             VNotInTimeout().run(action_name="pageview",
                 details_text="muted", target=c.site)
             self.listing_cls = MutedListing
+
+        elif where == "report_blocked":
+            if not (c.user_is_admin or (has_mod_access and
+                    c.site.is_moderator_with_perms(c.user, 'posts'))):
+                abort(403)
+            VNotInTimeout().run(action_name="pageview",
+                details_text="report_blocked", target=c.site)
+            self.listing_cls = BlockedReportersListing
 
         elif where == 'wikibanned':
             if not (c.site.is_moderator_with_perms(c.user, 'wiki') or

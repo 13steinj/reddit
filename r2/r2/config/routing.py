@@ -199,7 +199,7 @@ def make_map(config):
           action='spamlisting',
           requirements=dict(location='reports|spam|modqueue|unmoderated|edited'))
        connect('/about/:where', controller='userlistlisting',
-          requirements=dict(where='contributors|banned|muted|wikibanned|'
+          requirements=dict(where='contributors|banned|muted|report_blocked|wikibanned|'
               'wikicontributors|moderators'), action='listing')
        connect('/about/:location', controller='front', action='editreddit',
           requirements=dict(location='edit|stylesheet|traffic|about'))

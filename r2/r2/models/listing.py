@@ -242,6 +242,28 @@ class MutedListing(UserListing):
         return items
 
 
+class BlockedReportersListing(UserListing):
+    type = 'report_blocked'
+
+    @classmethod
+    def populate_from_blocked_hashes(cls, item, hash_=None):
+        if not hash_:
+            return
+
+    @property
+    def form_title(self):
+        return _("block report hashes")
+
+    @property
+    def title(self):
+        return _("report hashes blocked from"
+                 " /r/%(subreddit)s") % dict(subreddit=c.site.name)
+
+    def get_items(self, *a, **kw):
+        items = UserListing.get_items(self, *a, **kw)
+        return items
+
+
 class WikiBannedListing(BannedListing):
     type = 'wikibanned'
 
