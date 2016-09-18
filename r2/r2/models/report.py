@@ -187,8 +187,10 @@ class Report(MultiRelation('report', *REPORT_RELS)):
                                for reason, group in groupby(sorted(
                                user_reports, key=grouper), grouper)}
             # we only care about the max_user_reasons ordered report reasons
-            counted_reasons = Counter(users_by_reason.keys()).most_common(
-                max_user_reasons)  # (reasons, how many) of max_user_reasons
+            counted_reasons = Counter({reason: len(users_by) for
+                                       reason, users_by in
+                                       users_by_reason.iteritems()}
+            ).most_common(max_user_reasons)
 
             # get the user hashes we have to look up out of max_user_reasons
             lookup_ids = [user for grouping in
