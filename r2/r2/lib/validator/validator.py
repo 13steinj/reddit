@@ -876,6 +876,8 @@ def fullname_regex(thing_cls = None, multiple = False):
         pattern = r"(%s *,? *)+" % pattern
     return re.compile(r"\A" + pattern + r"\Z")
 
+trylater_regex = re.compile(r"\A[\w:]\Z")
+
 class VByName(Validator):
     # Lookup tdb_sql.Thing or tdb_cassandra.Thing objects by fullname.
     splitter = re.compile('[ ,]+')
@@ -896,13 +898,13 @@ class VByName(Validator):
         Validator.__init__(self, param, **kw)
 
     def run(self, items):
-        if self.backend == 'cassandra':
+        if self.backend in ['cassandra', 'trylater']:
             # tdb_cassandra.Thing objects can't use the regex
             if items and self.multiple:
                 items = [item for item in self.splitter.split(items)]
                 if self.limit and len(items) > self.limit:
                     return self.set_error(errors.TOO_MANY_THING_IDS)
-            if items:
+            if items and self.backend == 'cassandra':
                 try:
                     return tdb_cassandra.Thing._by_fullname(
                         items,
@@ -911,6 +913,15 @@ class VByName(Validator):
                     )
                 except tdb_cassandra.NotFound:
                     pass
+            elif items:
+                keys, columns = (
+                    [filter(trylater_regex, set(pieces)) for pieces in
+                     zip(*[item.split('_') for item in tup(items)
+                           if '_' in item])])
+                if not keys or not columns:
+                    return self.set_error(self._error())
+                TryLaterBySubject._cf.multiget(keys, columns)
+                raise Exception(underscores)
         else:
             if items and self.multiple:
                 items = [item for item in self.splitter.split(items)

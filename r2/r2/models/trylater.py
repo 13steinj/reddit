@@ -229,3 +229,17 @@ class TryLaterBySubject(tdb_cassandra.View):
             keys = TryLater.search(schedule_rowkey, uu).keys()
             TryLater.unschedule(schedule_rowkey, keys)
         cls._cf.remove(rowkey, colkey)
+
+    _by_subject_classes_by_key = {
+        'srreportblock': 'BlockedReportHash'
+    }
+
+    @classmethod
+    def _by_subject(cls, keys, columns):
+        from r2 import models
+        subject_prefix, subject_val = [
+            set(pieces) for pieces in
+            zip(*[item.split('_') for item in tup(items)
+                  if '_' in item])
+        ]
+        return cls._cf.multiget(keys, columns)

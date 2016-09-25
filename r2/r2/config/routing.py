@@ -198,8 +198,10 @@ def make_map(config):
        connect('/about/:location', controller='front',
           action='spamlisting',
           requirements=dict(location='reports|spam|modqueue|unmoderated|edited'))
+       connect('/about/report_blocked', controller='userlistlisting',
+          action='report_blocked_listing')
        connect('/about/:where', controller='userlistlisting',
-          requirements=dict(where='contributors|banned|muted|report_blocked|wikibanned|'
+          requirements=dict(where='contributors|banned|muted|wikibanned|'
               'wikicontributors|moderators'), action='listing')
        connect('/about/:location', controller='front', action='editreddit',
           requirements=dict(location='edit|stylesheet|traffic|about'))

@@ -4036,30 +4036,17 @@ class MutedTableItem(RelTableItem):
         return _("muted")
 
 
-class ReportBlockedWrapper(object):
-    __slots__ = ('_rel', '_date')
-    def __init__(self, rel, made):
-        self._rel = rel
-        self._date = made
-
-
 class ReportBlockedTableItem(RelTableItem):
     type = 'report_blocked'
     cells = ('hash_', 'age', 'remove')
 
-    def __init__(self, rel, **kw):
-        self.hash_, self._id = [(k, v) for k, v in rel.iteritems()][0]
-        time = datetime.datetime.fromtimestamp(convert_uuid_to_time(self._id),
-                                               g.tz)
-        if time:
-            now = datetime.datetime.now(g.tz)
-            delay = time - now
-            made = now - (datetime.timedelta(hours=48) - delay)
-            self.rel = ReportBlockedWrapper(rel, made)
-            self.blocked = max(int(delay.total_seconds()), 0)
+    @property
+    def blocked(self):
+        return self.rel.blocked
 
-        UserTableItem.__init__(self, c.site, **kw)
-
+    @property
+    def hash_(self):
+        return self.rel.value
 
     @property
     def executed_message(self):

@@ -1304,6 +1304,10 @@ class Subreddit(Thing, Printable, BaseSite):
     def get_blocked_reporthashes(self, hashes=None):
         return BlockedReportHashesBySubreddit.search(self, hashes)
 
+    def get_blocked_reporthash_query(self, after=None, reverse=False,
+                                     count=float('inf')):
+        return BlockedReportHashesBySubreddit.get_query(self, after, reverse, count)
+
     def is_blocked_reporthash(self, hash_):
         retval = self.get_blocked_reporthashes([hash_])
         # for consistency with is_banned, is_muted, etc.
@@ -1323,7 +1327,7 @@ class Subreddit(Thing, Printable, BaseSite):
     def update_reporthash_blocks(self, oldhash, newhash):
         was_blocked = self.is_blocked_reporthash(oldhash)
         if was_blocked:
-            diff = (datetime.now(g.tz) - was_blocked).hours
+            diff = (datetime.datetime.now(g.tz) - was_blocked).hours
             self.unblock_from_reporting(oldhash)
             return self.block_from_reporting(newhash, hours)
 
@@ -2991,6 +2995,27 @@ def unmute_hook(data):
         MutedAccountsBySubreddit.unmute(subreddit, user, automatic=True)
 
 
+class BlockedReportHash(object):
+    __slots__ = ('_date', '_id', '_thing2', 'blocked', 'value')
+    _by_id_args = {sr: Subreddit._by_name}
+    def __init__(self, value, uuid, sr):
+        self.value = self._id = value
+        # mod-made block is always 48 hours before time is up
+        # the block done by the system upon updates should be silent
+        at_unblock = datetime.datetime.fromtimestamp(
+            convert_uuid_to_time(uuid),
+            g.tz
+        )
+        self.blocked = max(
+            int((at_unblock - datetime.datetime.now(g.tz)).total_seconds()), 0)
+        self._date = at_unblock - datetime.timedelta(hours=48)
+        self._thing2 = sr
+
+    @property
+    def _fullname(self):
+        return "TryLaterBySubject_{0}".format(self.value)
+
+
 class BlockedReportHashesBySubreddit(object):
     @classmethod
     def block(cls, sr, hash, hours=0):
@@ -3047,6 +3072,18 @@ class BlockedReportHashesBySubreddit(object):
         if automatic:
             unblocker = Account.system_user()
             # ModAction.create(sr, unblocker, 'unblockreporter', target=hash)
+
+    @classmethod
+    def get_query(cls, sr, after=None, reverse=False, count=float('inf')):
+        q = TryLaterBySubject._query_cls(
+            TryLaterBySubject,
+            [cls.cancel_rowkey(sr)], column_count=count,
+            column_reversed=not reverse,
+            column_to_obj=lambda column: map(
+                lambda row: BlockedReportHash(*row.popitem(), sr=sr), column),
+        )
+        q._after(after)
+        return q
 
 
 @trylater_hooks.on('trylater.srreportblock')

@@ -38,7 +38,6 @@ from r2.lib.menus import ControversyTimeMenu, ProfileOverviewTimeMenu, menu, Que
 from r2.lib.rising import get_rising, normalized_rising
 from r2.lib.wrapped import Wrapped
 from r2.lib.normalized_hot import normalized_hot
-from r2.lib.db.tdb_cassandra import ColumnQuery
 from r2.lib.db.thing import Query, Merge, Relations
 from r2.lib.db import queries
 from r2.lib.strings import Score
@@ -1814,10 +1813,7 @@ class UserListListingController(ListingController):
 
     def query(self):
         if self.where == "report_blocked":
-            return ColumnQuery(
-                TryLaterBySubject,
-                [BlockedReportHashesBySubreddit.cancel_rowkey(c.site)]
-            )
+            return c.site.get_blocked_reporthash_query()
         rel = self.rel()
         if self.where in ["friends", "blocked"]:
             thing1_id = c.user._id
@@ -1920,7 +1916,7 @@ class UserListListingController(ListingController):
                      uri='/about/{where}',
                      uri_variants=['/about/' + where for where in [
                         'banned', 'muted', 'wikibanned', 'contributors',
-                        'wikicontributors', 'moderators']])
+                        'wikicontributors', 'moderators', 'report_blocked']])
     def GET_listing(self, where, user=None, **kw):
         if isinstance(c.site, FakeSubreddit):
             return self.abort404()
@@ -2010,6 +2006,34 @@ class UserListListingController(ListingController):
             kw['num'] = 0
 
         return self.build_listing(**kw)
+
+    @require_oauth2_scope("read")
+    @validate(user=VAccountByName('user'))
+    @paginated_listing(backend="trylater")
+    def GET_report_blocked_listing(self, **kw):
+        if isinstance(c.site, FakeSubreddit):
+            return self.abort404()
+
+        self.where, self.paginated = "report_blocked", True
+
+        has_mod_access = ((c.user_is_loggedin and
+                           c.site.is_moderator_with_perms(c.user,
+                                                          'access', 'posts'))
+                          or c.user_is_admin)
+
+        self.editable = not (c.user_is_loggedin and c.user.in_timeout)
+
+        if not (c.user_is_admin or has_mod_access):
+            abort(403)
+        VNotInTimeout().run(action_name="pageview",
+            details_text="report_blocked", target=c.site)
+        self.listing_cls = BlockedReportersListing
+
+        self.show_jump_to, self.jump_to_val, self.show_not_found = (
+            False, None, False)
+
+        return self.build_listing(**kw)
+
 
 
 class GildedController(SubredditListingController):
