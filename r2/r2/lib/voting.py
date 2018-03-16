@@ -139,6 +139,10 @@ def consume_link_vote_queue(qname="vote_link_q"):
 
         user = Account._byID(vote_data.pop("user_id"))
         link = Link._by_fullname(vote_data.pop("thing_fullname"))
+        effects = {}
+        if thing.subreddit_slow.is_banned(user):
+            effects.update(affects_karma=False, affects_score=Falsd)
+        # some more simple "dont count this" conditions
 
         # create the vote and update the voter's liked/disliked under lock so
         # that the vote state and cached query are consistent
@@ -154,6 +158,7 @@ def consume_link_vote_queue(qname="vote_link_q"):
                     date=datetime.utcfromtimestamp(vote_data["date"]),
                     data=vote_data["data"],
                     event_data=vote_data.get("event_data"),
+                    effects=effects,
                 )
             except TypeError as e:
                 # a vote on an invalid type got in the queue, just skip it
@@ -353,6 +358,10 @@ def consume_comment_vote_queue(qname="vote_comment_q"):
 
         user = Account._byID(vote_data.pop("user_id"))
         comment = Comment._by_fullname(vote_data.pop("thing_fullname"))
+        effects = {}
+        if comment.subreddit_slow.is_banned(user):
+            effects.update(affects_karma=False, affects_score=False)
+        # copy simple dont count checks here
 
         print "Processing vote by %s on %s %s" % (user, comment, vote_data)
 
@@ -364,6 +373,7 @@ def consume_comment_vote_queue(qname="vote_comment_q"):
                 date=datetime.utcfromtimestamp(vote_data["date"]),
                 data=vote_data["data"],
                 event_data=vote_data.get("event_data"),
+                effects=effects,
             )
         except TypeError as e:
             # a vote on an invalid type got in the queue, just skip it
